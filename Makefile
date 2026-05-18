@@ -1,7 +1,7 @@
 TARGET_DIR := target
 
 BUILD_DIR := $(TARGET_DIR)/build
-LIB_NAME := libclop.a
+LIB_NAME := libclp.a
 BUILD_LIB := $(BUILD_DIR)/lib/$(LIB_NAME)
 
 SRC_DIRS := src
