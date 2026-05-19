@@ -3,10 +3,11 @@
 
 #include "d_types.h"
 #include "d_dyn_array.h"
+#include "d_string_view.h"
 #include "d_error.h"
 
-#define clp_init_option(opt, long_name, short_name, description, value_type, required, global) \
-    clp_init_option_raw(opt, long_name, short_name, description, false, (Value){0}, value_type, required, global)
+#define clp_init_option(opt, long_name, short_name, description, type, required, global) \
+    clp_init_option_raw(opt, long_name, short_name, description, false, (Value){0}, type, required, global)
 
 #define clp_init_option_default_long(opt, ln, sn, desc, def, req, glob) \
     clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_long = (def)}, OPT_TYPE_LONG, req, glob)
@@ -26,7 +27,7 @@
 #define clp_init_option_default_double(opt, ln, sn, desc, def, req, glob) \
     clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_double = (def)}, OPT_TYPE_DOUBLE, req, glob)
 
-typedef enum ValueType
+typedef enum Type
 {
     OPT_TYPE_LONG,
     OPT_TYPE_BOOL,
@@ -34,11 +35,26 @@ typedef enum ValueType
     OPT_TYPE_STR,
     OPT_TYPE_CHAR,
     OPT_TYPE_DOUBLE
-} ValueType;
+} Type;
+
+typedef enum ArgAction
+{
+    ARG_ACT_SET_OVERRIDE,
+    ARG_ACT_COUNT,
+    ARG_ACT_LIST,
+    ARG_ACT_SET_UNIQUE
+} ArgAction;
+
+typedef enum OperanAction
+{
+    OPERAND_ACT_LIST,
+    OPERAND_ACT_SET_UNIQUE
+} OperanAction;
 
 typedef union Value
 {
     long value_long;
+    DDynArray value_list;
     usize value_usize;
     bool value_bool;
     char *value_str;
@@ -46,40 +62,58 @@ typedef union Value
     double value_double;
 } Value;
 
-typedef struct CommandOption
+typedef struct Operand
 {
-    char *long_name;
+    DStringView name;
+    bool required;
+    char *description;
+    bool has_default_value;
+    bool value_set;
+    OperanAction action;
+    Value value;
+    Type type;
+} Operand;
+
+typedef struct Option
+{
+    DStringView long_name;
     char short_name;
     char *description;
     bool required;
     bool has_default_value;
+    bool value_set;
     bool global;
+    ArgAction action;
     Value value;
-    ValueType value_type;
+    Type type;
 
-} CommandOption;
+} Option;
 
 typedef struct Command
 {
-    char *name;
-    char *description;
-    int command_code;
     DDynArray options;
+    DDynArray operands;
     DDynArray sub_commands;
+    DDynArray extra;
+    Command *parent_command;
+    DStringView name;
+    char *description;
+    int code;
 } Command;
 
-typedef struct Clp
+typedef enum ClpParseError
 {
-    Command root;
-} Clp;
+    CLP_PARSE_ERR_INVALID_SHORT_OPT_FORMAT,
+    CLP_PARSE_ERR_INVALID_LONG_OPT_FORMAT,
+};
 
-DResult clp_init(Clp *clp, Command *root_command);
-DResult clp_init_command(Command *command, char *name, char *description, int command_code);
+DResult clp_init_command(Command *command, char *name, char *description, int code);
 DResult clp_add_command_sub_command(Command *command, Command *sub_command);
-DResult clp_init_option_raw(CommandOption *opt, char *long_name, char short_name, char *description, bool has_default_value, Value value, ValueType type, bool required, bool global);
-DResult clp_add_command_option(Command *command, CommandOption *command_option);
+DResult clp_add_command_option(Command *command, Option *command_option, DError *error);
+DResult clp_add_command_operand(Command *command, Operand *command_operand, DError *error);
+DResult clp_init_option_raw(Option *opt, char *long_name, char short_name, char *description, bool has_default_value, ArgAction action, Value value, Type type, bool required, bool global, DError *error);
+DResult clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required, DError *error);
+DResult clp_parse_args(Command *root, char **argv, Command **command, DError *error);
 
-DResult clp_parse(Clp *clp, int argc, char **argv, DError *error);
-
-DResult clp_cleanup(Clp *clp);
+void clp_cleanup(Command *root);
 #endif
