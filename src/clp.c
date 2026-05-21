@@ -12,6 +12,7 @@
 #define clp_eprint(...) eprint(clp, __VA_ARGS__)
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
+
 void free_command(void *command)
 {
     if (command == NULL)
@@ -19,6 +20,17 @@ void free_command(void *command)
     Command *cmd = command;
     d_dyn_array_destroy(&cmd->operands);
     d_dyn_array_destroy(&cmd->sub_commands);
+
+    DDynArray *opts = &cmd->options;
+    for (size_t i = 0; i < opts->array.size; i++)
+    {
+        Option *opt = d_dyn_array_get_elem_addr_at_safe(opts, i);
+        if (opt->type == TYPE_KV)
+            d_unordered_map_destroy(&opt->value.value_kv);
+        else if (opt->action == ARG_ACT_LIST)
+            d_dyn_array_destroy(&opt->value.value_list);
+    }
+    
     d_dyn_array_destroy(&cmd->options);
     d_dyn_array_destroy(&cmd->extra);
 }
