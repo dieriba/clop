@@ -5,6 +5,7 @@
 #include "d_dyn_array.h"
 #include "d_string_view.h"
 #include "d_error.h"
+#include "d_unordered_map.h"
 
 #define clp_init_option(opt, long_name, short_name, description, type, required, global) \
     clp_init_option_raw(opt, long_name, short_name, description, false, (Value){0}, type, required, global)
@@ -34,7 +35,8 @@ typedef enum Type
     TYPE_USIZE,
     TYPE_STR,
     TYPE_CHAR,
-    TYPE_DOUBLE
+    TYPE_DOUBLE,
+    TYPE_KV
 } Type;
 
 typedef enum OptAction
@@ -53,6 +55,7 @@ typedef enum OperanAction
 
 typedef union Value
 {
+    DUnorderedMap value_kv;
     DDynArray value_list;
     usize value_usize;
     double value_double;
