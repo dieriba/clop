@@ -9,7 +9,9 @@
 #define NUMERIC "0123456789"
 #define HYPHEN "-"
 #define UNDERSCORE "_"
-
+#define clp_eprint(...) eprint(clp, __VA_ARGS__)
+#define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
+#define FLAG_SHORT_OPT_NOT_SET 0xFF
 void free_command(void *command)
 {
     if (command == NULL)
@@ -31,8 +33,8 @@ DResult clp_init_command(Command *command, char *name, char *description, int co
     command->parent_command = NULL;
     DResult op_result;
 
-    if ((op_result = d_dyn_array_default_init(&command->sub_commands, Command, free_command, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_init(&command->options, Option, NULL, RAW_BUF_OPT_NONE)) != D_OK ||
-        (op_result = d_dyn_array_default_init(&command->extra, char *, NULL, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_init(&command->operands, Operand, NULL, RAW_BUF_OPT_NONE)) != D_OK)
+    if ((op_result = d_dyn_array_default_init(&command->sub_commands, Command, free_command, NULL, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_init(&command->options, Option, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK ||
+        (op_result = d_dyn_array_default_init(&command->extra, char *, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_init(&command->operands, Operand, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK)
         return op_result;
     return D_OK;
 }
@@ -78,18 +80,14 @@ static Option *get_option_by_predicate(Command *command, void *ctx, bool (*predi
     return NULL;
 }
 
-DResult clp_add_command_option(Command *command, Option *command_option, DError *error)
+DResult clp_add_command_option(Command *command, Option *command_option)
 {
     if (command == NULL || command_option == NULL)
         return D_ERR_INVALID_ARG;
     if (get_option_by_long(command, command_option->long_name))
-    {
-        //
-    }
-    else if (get_option_by_short(command, command_option->short_name))
-    {
-        //
-    }
+        clp_eprint_exit("%s internal error: option '--%s' already registered\n", command->name.data, command_option->long_name);
+    if (get_option_by_short(command, command_option->short_name))
+        clp_eprint_exit("%s internal error: option '-%c' already registered\n", command->name.data, command_option->short_name);
     return d_dyn_array_push_back(&command->options, command_option);
 }
 
@@ -106,19 +104,13 @@ static Operand *get_command_operand_by_name(Command *command, DStringView name)
     return NULL;
 }
 
-DResult clp_add_command_operand(Command *command, Operand *command_operand, DError *error)
+DResult clp_add_command_operand(Command *command, Operand *command_operand)
 {
     if (command == NULL || command_operand == NULL)
         return D_ERR_INVALID_ARG;
     if (get_command_operand_by_name(command, command_operand->name))
-    {
-        //
-    }
+        clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command->name.data);
     return d_dyn_array_push_back(&command->operands, command_operand);
-}
-
-void construct_error_command(Command *cmd, DError *error)
-{
 }
 
 static bool is_valid_short(char shrt)
@@ -133,12 +125,12 @@ static bool is_valid_long(DStringView lng)
     return true;
 }
 
-static bool action_valid_for_type(ArgAction arg_action, Type type, DError *error)
+static bool action_valid_for_type(ArgAction arg_action, Type type)
 {
     switch (arg_action)
     {
     case ARG_ACT_COUNT:
-        if (type != OPT_TYPE_USIZE)
+        if (type != TYPE_USIZE)
             return false;
     default:
         break;
@@ -146,23 +138,57 @@ static bool action_valid_for_type(ArgAction arg_action, Type type, DError *error
     return true;
 }
 
-DResult clp_init_option_raw(Option *opt, char *long_name, char short_name, char *description, bool has_default_value,
-                            ArgAction action, Value value, Type type, bool required, bool global, DError *error)
+static const char *type_to_str(Type type)
 {
-    if (opt == NULL || long_name == NULL)
+    switch (type)
+    {
+    case TYPE_LONG:
+        return "long";
+    case TYPE_BOOL:
+        return "bool";
+    case TYPE_USIZE:
+        return "usize";
+    case TYPE_STR:
+        return "str";
+    case TYPE_CHAR:
+        return "char";
+    case TYPE_DOUBLE:
+        return "double";
+    default:
+        break;
+    }
+    return "UNKNOWN TYPE";
+}
+
+DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
+                            ArgAction action, Value value, Type type, bool required, bool global)
+{
+    if (opt == NULL || (long_name == NULL && short_name == NULL))
         return D_ERR_INVALID_ARG;
-
-    if (is_valid_short(short_name) == false)
-        return D_ERR;
+    char shrt_name = FLAG_SHORT_OPT_NOT_SET;
+    if (short_name && is_valid_short(shrt_name = *short_name) == false)
+    {
+        clp_eprint("internal error: '-%c' is not a valid option name\n", shrt_name);
+        clp_eprint_exit("a short option must be a single alphanumeric character [a-z A-Z 0-9]\n");
+    }
     else if (is_valid_long(opt->long_name = d_string_view_from_c_string(long_name)) == false)
-        return D_ERR;
+    {
+        clp_eprint("internal error: '--%s' is not a valid option name\n", long_name);
+        clp_eprint_exit("a long option must start with a letter and contain only [a-z A-Z 0-9 -]\n");
+    }
 
-    if (action_valid_for_type(action, type, error) == false)
-        return D_ERR;
+    if (action == ARG_ACT_COUNT && type != TYPE_USIZE)
+    {
+        if (long_name)
+            clp_eprint("internal error: option '--%s' has action 'count' but type '%s' is not valid\n", long_name, type_to_str(type));
+        else
+            clp_eprint("internal error: option '-%c' has action 'count' but type '%s' is not valid\n", shrt_name, type_to_str(type));
+        clp_eprint_exit("count action requires an integer type [u8 u16 u32 u64]\n");
+    }
 
     opt->value_set = false;
     opt->action = action;
-    opt->short_name = short_name;
+    opt->short_name = shrt_name;
     opt->description = description == NULL ? NO_DESC : description;
     opt->has_default_value = has_default_value;
     opt->value = value;
@@ -172,18 +198,10 @@ DResult clp_init_option_raw(Option *opt, char *long_name, char short_name, char 
     return D_OK;
 }
 
-static inline bool is_valid_operand(DStringView name)
-{
-    return is_valid_long(name);
-}
-
-DResult clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required, DError *error)
+DResult clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required)
 {
     if (operands == NULL || name == NULL)
         return D_ERR_INVALID_ARG;
-
-    if (is_valid_operand(operands->name = d_string_view_from_c_string(name)) == false)
-        return D_ERR;
 
     operands->value_set = false;
     operands->action = action;
@@ -195,38 +213,7 @@ DResult clp_init_operand_raw(Operand *operands, char *name, char *description, b
     return D_OK;
 }
 
-static DResult parse_short_opt(Command *root, char shrt)
-{
-}
-
-static DResult parse_long_opt(Command *root, char *lng)
-{
-}
-
-static DResult parse_option(Command *root, char *opt)
-{
-    DResult op_result;
-    if (opt[1] == 0)
-    {
-        op_result = parse_short_opt(root, *opt);
-    }
-    else if (opt[1] == '-')
-    {
-        if (opt[2] == 0)
-        {
-        }
-        else
-        {
-            op_result = parse_long_opt(root, opt);
-        }
-    }
-    else
-    {
-        // d_error_new();
-    }
-}
-
-static DResult parse(Command *root, char **argv, Command **command, DError *error)
+static DResult parse(Command *root, char **argv, Command **command)
 {
     ++argv; // skip program name at first call then skip current command name already parsed
     char *s;
@@ -245,7 +232,7 @@ static DResult parse(Command *root, char **argv, Command **command, DError *erro
             if (d_string_view_compare_against_c_string(sub_cmd->name, s))
             {
                 *command = sub_cmd;
-                DResult op_result = parse(sub_cmd, argv, command, error);
+                DResult op_result = parse(sub_cmd, argv, command);
                 if (op_result != D_OK)
                     return op_result;
             }
@@ -256,11 +243,11 @@ static DResult parse(Command *root, char **argv, Command **command, DError *erro
     return D_OK;
 }
 
-DResult clp_parse_args(Command *root, char **argv, Command **command, DError *error)
+DResult clp_parse_args(Command *root, char **argv, Command **command)
 {
     if (root == NULL || argv == NULL || *argv == NULL)
         return D_ERR_INVALID_ARG;
-    return parse(root, argv, command, error);
+    return parse(root, argv, command);
 }
 
 void clp_cleanup(Command *root)
