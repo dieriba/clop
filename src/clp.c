@@ -13,7 +13,7 @@
 #define clp_eprint(...) eprint(clp, __VA_ARGS__)
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
-#define STR_STARTS_WITH_HYPEN(s) *(s) == HYPHEN
+#define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
 
 typedef void (*ConversionFn)(char *to_convert, Value *value);
 
@@ -142,7 +142,7 @@ static bool is_valid_short(char shrt)
 
 static bool is_valid_long(DStringView lng)
 {
-    if (lng.size == 0 || lng.data[0] == HYPHEN || lng.data[0] == UNDERSCORE || d_string_view_find_first_char_not_in_set_from_start(lng, D_STRING_VIEW_FROM_LITERAL(ALPHABET_LOWERCASE ALPHABET_UPPERCASE HYPHEN UNDERSCORE)) != MAX_SIZE_T_VALUE)
+    if (lng.size == 0 || lng.data[0] == HYPHEN || lng.data[0] == UNDERSCORE || d_string_view_find_first_char_not_in_set_from_start(lng, D_STRING_VIEW_FROM_LITERAL(ALPHABET_LOWERCASE ALPHABET_UPPERCASE HYPHEN UNDERSCORE NUMERIC)) != MAX_SIZE_T_VALUE)
         return false;
     return true;
 }
