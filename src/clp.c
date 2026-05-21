@@ -30,7 +30,7 @@ void free_command(void *command)
         else if (opt->action == ARG_ACT_LIST)
             d_dyn_array_destroy(&opt->value.value_list);
     }
-    
+
     d_dyn_array_destroy(&cmd->options);
     d_dyn_array_destroy(&cmd->extra);
 }
@@ -64,7 +64,7 @@ static inline bool eq_short_opt(Option *opt, void *ctx)
     return opt->short_name == *(char *)ctx;
 }
 
-static Option *get_option_by_short(Command *command, char shrt)
+Option *get_option_by_short(Command *command, char shrt)
 {
     return get_option_by_predicate(command, &shrt, eq_short_opt);
 }
@@ -74,7 +74,7 @@ static inline bool eq_long_opt(Option *opt, void *ctx)
     return d_string_view_compare(opt->long_name, *((DStringView *)ctx));
 }
 
-static Option *get_option_by_long(Command *command, DStringView lng)
+Option *get_option_by_long(Command *command, DStringView lng)
 {
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
