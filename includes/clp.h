@@ -41,7 +41,6 @@ typedef enum Type
 
 typedef enum OptAction
 {
-    ARG_ACT_SET_OVERRIDE,
     ARG_ACT_COUNT,
     ARG_ACT_LIST,
     ARG_ACT_SET_UNIQUE
@@ -82,7 +81,6 @@ typedef struct Option
     Value value;
     DStringView long_name;
     char *description;
-    int code;
     OptAction action;
     Type type;
     char short_name;
@@ -90,7 +88,6 @@ typedef struct Option
     bool has_default_value;
     bool value_set;
     bool global;
-
 } Option;
 
 typedef struct Command

@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include "clp.h"
 #include "d_hash_set.h"
+#include "d_general_lib.h"
 
 #define NO_DESC "no associated description"
 #define START_OPT_CHAR '-'
@@ -12,6 +13,9 @@
 #define clp_eprint(...) eprint(clp, __VA_ARGS__)
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
+#define STR_STARTS_WITH_HYPEN(s) *(s) == HYPHEN
+
+typedef void (*ConversionFn)(char *to_convert, Value *value);
 
 void free_command(void *command)
 {
@@ -97,9 +101,9 @@ DResult clp_add_command_option(Command *command, Option *command_option)
     if (command == NULL || command_option == NULL)
         return D_ERR_INVALID_ARG;
     if (get_option_by_long(command, command_option->long_name))
-        clp_eprint_exit("%s internal error: option '--%s' already registered\n", command->name.data, command_option->long_name);
+        clp_eprint_exit("%s command option '--%s' already registered\n", command->name.data, command_option->long_name);
     if (get_option_by_short(command, command_option->short_name))
-        clp_eprint_exit("%s internal error: option '-%c' already registered\n", command->name.data, command_option->short_name);
+        clp_eprint_exit("%s command option '-%c' already registered\n", command->name.data, command_option->short_name);
     return d_dyn_array_push_back(&command->options, command_option);
 }
 
@@ -120,8 +124,14 @@ DResult clp_add_command_operand(Command *command, Operand *command_operand)
 {
     if (command == NULL || command_operand == NULL)
         return D_ERR_INVALID_ARG;
+    DDynArray *ops = &command->operands;
+    usize size = d_dyn_array_get_size_safe(ops);
+    Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_addr_at_safe(ops, size - 1);
+
     if (get_command_operand_by_name(command, command_operand->name))
         clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command->name.data);
+    else if (last_operand != NULL && (last_operand->required == false && command_operand->required == true))
+        clp_eprint_exit("%s command required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
     return d_dyn_array_push_back(&command->operands, command_operand);
 }
 
@@ -159,29 +169,43 @@ static const char *type_to_str(Type type)
     return "UNKNOWN TYPE";
 }
 
+static void exit_if_not_valid_long_opt_name(DStringView long_opt)
+{
+    if (is_valid_long(long_opt) == false)
+    {
+        clp_eprint("'--%s' is not a valid option name\n", long_opt.data);
+        clp_eprint_exit("a long option must start with a letter and contain only [a-z A-Z 0-9 -]\n");
+    }
+}
+
+static void exit_if_not_valid_short_opt_name(char short_opt)
+{
+    if (is_valid_short(short_opt) == false)
+    {
+        clp_eprint("'-%c' is not a valid option name\n", short_opt);
+        clp_eprint_exit("a short option must be a single alphanumeric character [a-z A-Z 0-9]\n");
+    }
+}
+
 DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
                             OptAction action, Value value, Type type, bool required, bool global)
 {
     if (opt == NULL || (long_name == NULL && short_name == NULL))
         return D_ERR_INVALID_ARG;
     char shrt_name = FLAG_SHORT_OPT_NOT_SET;
-    if (short_name && is_valid_short(shrt_name = *short_name) == false)
-    {
-        clp_eprint("internal error: '-%c' is not a valid option name\n", shrt_name);
-        clp_eprint_exit("a short option must be a single alphanumeric character [a-z A-Z 0-9]\n");
-    }
-    else if (is_valid_long(opt->long_name = d_string_view_from_c_string(long_name)) == false)
-    {
-        clp_eprint("internal error: '--%s' is not a valid option name\n", long_name);
-        clp_eprint_exit("a long option must start with a letter and contain only [a-z A-Z 0-9 -]\n");
-    }
+    opt->long_name = d_string_view_from_c_string(long_name);
+
+    if (short_name)
+        exit_if_not_valid_shot_opt_name(shrt_name = *short_name);
+    if (long_name)
+        exit_if_not_valid_long_opt_name(opt->long_name);
 
     if (action == ARG_ACT_COUNT && type != TYPE_USIZE)
     {
         if (long_name)
-            clp_eprint("internal error: option '--%s' has action 'count' but type '%s' is not valid\n", long_name, type_to_str(type));
+            clp_eprint("option '--%s' has action 'count' but type '%s' is not valid\n", long_name, type_to_str(type));
         else
-            clp_eprint("internal error: option '-%c' has action 'count' but type '%s' is not valid\n", shrt_name, type_to_str(type));
+            clp_eprint("option '-%c' has action 'count' but type '%s' is not valid\n", shrt_name, type_to_str(type));
         clp_eprint_exit("count action requires an integer type [u8 u16 u32 u64]\n");
     }
 
@@ -212,40 +236,265 @@ DResult clp_init_operand_raw(Operand *operands, char *name, char *description, b
     return D_OK;
 }
 
-static DResult parse(Command *root, char **argv, Command **command)
+static void s_to_usize(char *s, Value *value)
+{
+}
+
+static void s_to_double(char *s, Value *value)
+{
+}
+
+static void s_to_long(char *s, Value *value)
+{
+}
+
+static void s_to_char(char *s, Value *value)
+{
+}
+
+static void s_to_string(char *s, Value *value)
+{
+}
+
+static void s_to_bool(char *s, Value *value)
+{
+}
+
+static void set_bool(char *s, Value *value)
+{
+    (void)s;
+    value->value_bool = true;
+}
+
+static ConversionFn type_to_conversion_fn(Type type)
+{
+    switch (type)
+    {
+    case TYPE_USIZE:
+        return s_to_usize;
+    case TYPE_LONG:
+        return s_to_long;
+    case TYPE_STR:
+        return s_to_string;
+    case TYPE_CHAR:
+        return s_to_char;
+    case TYPE_DOUBLE:
+        return s_to_double;
+    case TYPE_BOOL:
+        return s_to_bool;
+    default:
+        break;
+    }
+    return NULL;
+}
+
+static void set_opt_value(Command *root, Option *opt, char *operand, char *prefix, char *opt_name, usize len_name)
+{
+    ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
+
+    switch (opt->action)
+    {
+    case ARG_ACT_SET_UNIQUE:
+        if (opt->type != TYPE_BOOL)
+        {
+            if (operand == NULL)
+                clp_eprint_exit("%s command '%s%.*s' require a value", root->name, prefix, (int)len_name, opt_name);
+            conversion_fn(operand, &opt->value);
+        }
+        else
+            opt->value.value_bool = true;
+        break;
+    case ARG_ACT_COUNT:
+        opt->value.value_usize++;
+        break;
+    case ARG_ACT_LIST:
+        DStringView list = d_string_view_from_c_string(operand);
+        size_t i = 0, j = 0;
+        while (1)
+        {
+            j = d_string_view_find_first_matching_char_from_index(list, ',', i);
+            DStringView sub = d_string_view_subview(list, i, j - i);
+            DResult result;
+            if ((result = d_dyn_array_push_back(&opt->value.value_list, &sub)) != D_OK)
+                clp_eprint("internal error: %s", d_error_print_result_as_str(result));
+            if (j == MAX_SIZE_T_VALUE)
+                break;
+            i = j + 1;
+        }
+        break;
+    default:
+        break;
+    }
+    if (opt->value_set == false)
+        opt->value_set = true;
+}
+
+static char **set_operand_value(Command *root, usize cursor, char *raw_operand, char **argv, bool consume_all)
+{
+    DDynArray *operands = &root->operands;
+    usize operands_size = d_dyn_array_get_size_safe(operands);
+
+    if (cursor >= operands_size && raw_operand != NULL)
+        clp_eprint_exit("%s too many operands provided\n", root->name.data);
+    else if (raw_operand == NULL)
+        return argv;
+
+    Operand *operand = d_dyn_array_get_elem_addr_at_safe(operands, cursor);
+    ConversionFn conversion_fn = type_to_conversion_fn(operand->type);
+
+    switch (operand->action)
+    {
+    case OPERAND_ACT_SET_UNIQUE:
+        conversion_fn(raw_operand, &operand->value);
+        argv++;
+        break;
+    case OPERAND_ACT_LIST:
+        while (1)
+        {
+            DStringView list = d_string_view_from_c_string(raw_operand);
+            DResult result;
+            if ((result = d_dyn_array_push_back(&operand->value.value_list, &list)) != D_OK)
+                clp_eprint("internal error: %s", d_error_print_result_as_str(result));
+            raw_operand = *(argv++);
+            if (raw_operand == NULL || (!consume_all && STR_STARTS_WITH_HYPEN(raw_operand)))
+                break;
+        }
+        break;
+    default:
+        break;
+    }
+    if (operand->value_set == false)
+        operand->value_set = true;
+    return argv;
+}
+
+static void apply_opt(Command *root, Option *opt, char *operand, char *prefix, char *name, usize len)
+{
+    if (opt == NULL)
+        clp_eprint_exit("%s command unknown option '%s%.*s'\n", root->name, prefix, (int)len, name);
+    if (opt->value_set && opt->action == ARG_ACT_SET_UNIQUE)
+        clp_eprint_exit("%s command option '%s%.*s' cannot be specified more than once\n", root->name, prefix, (int)len, name);
+    set_opt_value(root, opt, operand, prefix, name, len);
+}
+
+static char **parse_remaining_operands(Command *root, usize *operand_cursor, char **argv)
+{
+    usize cursor = *operand_cursor;
+    while (1)
+    {
+        argv = set_operand_value(root, cursor, *argv, argv, true);
+        if (*argv == NULL)
+            break;
+        cursor++;
+    }
+    *operand_cursor = cursor;
+    return argv;
+}
+
+static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
+{
+    DStringView long_opt = d_string_view_from_c_string(lng_opt);
+    exit_if_not_valid_long_opt_name(long_opt);
+    Option *opt = get_option_by_long(root, long_opt);
+    apply_opt(root, opt, *argv, "--", long_opt.data, long_opt.size);
+    return argv + (opt->type != TYPE_BOOL);
+}
+
+static char **parse_short_opts(Command *root, char *short_opt, char **argv)
+{
+    char *operand = short_opt[1] == 0 ? *argv : &short_opt[1];
+    for (size_t i = 0; short_opt[i] != 0; i++)
+    {
+        exit_if_not_valid_short_opt_name(short_opt[i]);
+        Option *opt = get_option_by_short(root, short_opt[i]);
+        apply_opt(root, opt, operand, "-", &short_opt[i], 1);
+        operand++;
+        if (opt->type != TYPE_BOOL)
+            break;
+    }
+    return argv + (operand == *argv);
+}
+
+static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *operand_cusor)
+{
+    ++argv;
+    if (STR_STARTS_WITH_HYPEN(arg))
+    {
+        if (arg[1] == 0)
+            argv = parse_remaining_operands(root, operand_cusor, argv);
+        else
+            argv = parse_long_opt(root, &arg[1], argv);
+    }
+    else
+        argv = parse_short_opts(root, arg, argv);
+    return argv;
+}
+
+static usize get_command_required_operands_size(Command *root)
+{
+    DDynArray *operands = &root->operands;
+    usize size = d_dyn_array_get_size_safe(operands);
+    usize required = 0;
+    for (size_t i = 0; i < size; i++)
+    {
+        Operand *operand = d_dyn_array_get_elem_addr_at_safe(operands, i);
+        if (operand->required == true)
+            required++;
+    }
+    return required;
+}
+
+static void parse(Command *root, char **argv, Command **command)
 {
     ++argv; // skip program name at first call then skip current command name already parsed
     char *s;
     DDynArray *sub_commands = &root->sub_commands;
     usize size = d_dyn_array_get_size_safe(sub_commands);
-    while ((s = *argv) != NULL)
-    {
-        if (s[0] == HYPHEN)
-        {
-        }
+    usize cmd_parsed_operand = 0;
+    bool operand_mode = false;
 
-        for (usize i = 0; i < size; i++)
-        {
-            Command *sub_cmd = d_dyn_array_get_elem_addr_at_safe(sub_commands, i);
-            if (d_string_view_compare_against_c_string(sub_cmd->name, s))
-            {
-                *command = sub_cmd;
-                DResult op_result = parse(sub_cmd, argv, command);
-                if (op_result != D_OK)
-                    return op_result;
-            }
-        }
-        argv++;
+    if (*argv == NULL)
+    {
+        // print command usage/help
     }
 
-    return D_OK;
+    while ((s = *argv) != NULL)
+    {
+        if (STR_STARTS_WITH_HYPEN(s))
+        {
+            argv = interpret_hyphen(root, &s[1], argv, &cmd_parsed_operand);
+            continue;
+        }
+
+        if (operand_mode == false)
+        {
+            for (usize i = 0; i < size; i++)
+            {
+                Command *sub_cmd = d_dyn_array_get_elem_addr_at_safe(sub_commands, i);
+                if (d_string_view_compare_against_c_string(sub_cmd->name, s))
+                {
+                    *command = sub_cmd;
+                    parse(sub_cmd, argv, command);
+                    return;
+                }
+            }
+        }
+
+        if (!operand_mode)
+            operand_mode = true;
+        argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
+    }
+
+    if (cmd_parsed_operand < get_command_required_operands_size(root))
+        clp_eprint_exit("%s too few operands provided\n", root->name.data);
 }
 
 DResult clp_parse_args(Command *root, char **argv, Command **command)
 {
     if (root == NULL || argv == NULL || *argv == NULL)
         return D_ERR_INVALID_ARG;
-    return parse(root, argv, command);
+    parse(root, argv, command);
+    return D_OK;
 }
 
 void clp_cleanup(Command *root)
