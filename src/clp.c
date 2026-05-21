@@ -408,7 +408,7 @@ static char **parse_short_opts(Command *root, char *short_opt, char **argv)
     {
         exit_if_not_valid_short_opt_name(short_opt[i]);
         Option *opt = get_option_by_short(root, short_opt[i]);
-        apply_opt(root, opt, operand, "-", &short_opt[i], 1);
+        apply_opt(root, opt, operand, HYPHEN, &short_opt[i], 1);
         operand++;
         if (opt->type != TYPE_BOOL)
             break;
