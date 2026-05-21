@@ -9,6 +9,7 @@
 #define ALPHABET_UPPERCASE "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define NUMERIC "0123456789"
 #define HYPHEN "-"
+#define DOUBLE_HYPHEN HYPHEN HYPHEN
 #define UNDERSCORE "_"
 #define clp_eprint(...) eprint(clp, __VA_ARGS__)
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
@@ -396,7 +397,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
     DStringView long_opt = d_string_view_from_c_string(lng_opt);
     exit_if_not_valid_long_opt_name(long_opt);
     Option *opt = get_option_by_long(root, long_opt);
-    apply_opt(root, opt, *argv, "--", long_opt.data, long_opt.size);
+    apply_opt(root, opt, *argv, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     return argv + (opt->type != TYPE_BOOL);
 }
 
