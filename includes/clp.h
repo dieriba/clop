@@ -37,13 +37,13 @@ typedef enum Type
     TYPE_DOUBLE
 } Type;
 
-typedef enum ArgAction
+typedef enum OptAction
 {
     ARG_ACT_SET_OVERRIDE,
     ARG_ACT_COUNT,
     ARG_ACT_LIST,
     ARG_ACT_SET_UNIQUE
-} ArgAction;
+} OptAction;
 
 typedef enum OperanAction
 {
@@ -53,39 +53,40 @@ typedef enum OperanAction
 
 typedef union Value
 {
-    long value_long;
     DDynArray value_list;
     usize value_usize;
-    bool value_bool;
-    char *value_str;
-    char value_char;
     double value_double;
+    long value_long;
+    char *value_str;
+    bool value_bool;
+    char value_char;
 } Value;
 
 typedef struct Operand
 {
+    Value value;
     DStringView name;
-    bool required;
     char *description;
+    OperanAction action;
+    Type type;
+    bool required;
     bool has_default_value;
     bool value_set;
-    OperanAction action;
-    Value value;
-    Type type;
 } Operand;
 
 typedef struct Option
 {
+    Value value;
     DStringView long_name;
-    char short_name;
     char *description;
+    int code;
+    OptAction action;
+    Type type;
+    char short_name;
     bool required;
     bool has_default_value;
     bool value_set;
     bool global;
-    ArgAction action;
-    Value value;
-    Type type;
 
 } Option;
 
@@ -107,11 +108,11 @@ typedef enum ClpParseError
     CLP_PARSE_ERR_INVALID_LONG_OPT_FORMAT,
 };
 
-DResult clp_init_command(Command *command, char *name, char *description, int code);
+DResult clp_init_command(Command *command, int code, char *name, char *description);
 DResult clp_add_command_sub_command(Command *command, Command *sub_command);
 DResult clp_add_command_option(Command *command, Option *command_option);
 DResult clp_add_command_operand(Command *command, Operand *command_operand);
-DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, ArgAction action, Value value, Type type, bool required, bool global);
+DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
 DResult clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required);
 DResult clp_parse_args(Command *root, char **argv, Command **command);
 

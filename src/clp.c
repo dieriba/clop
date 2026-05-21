@@ -23,7 +23,7 @@ void free_command(void *command)
     d_dyn_array_destroy(&cmd->extra);
 }
 
-DResult clp_init_command(Command *command, char *name, char *description, int code)
+DResult clp_init_command(Command *command, int code, char *name, char *description)
 {
     if (command == NULL || name == NULL)
         return D_ERR_INVALID_ARG;
@@ -125,19 +125,6 @@ static bool is_valid_long(DStringView lng)
     return true;
 }
 
-static bool action_valid_for_type(ArgAction arg_action, Type type)
-{
-    switch (arg_action)
-    {
-    case ARG_ACT_COUNT:
-        if (type != TYPE_USIZE)
-            return false;
-    default:
-        break;
-    }
-    return true;
-}
-
 static const char *type_to_str(Type type)
 {
     switch (type)
@@ -161,7 +148,7 @@ static const char *type_to_str(Type type)
 }
 
 DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
-                            ArgAction action, Value value, Type type, bool required, bool global)
+                            OptAction action, Value value, Type type, bool required, bool global)
 {
     if (opt == NULL || (long_name == NULL && short_name == NULL))
         return D_ERR_INVALID_ARG;
@@ -223,7 +210,6 @@ static DResult parse(Command *root, char **argv, Command **command)
     {
         if (s[0] == HYPHEN)
         {
-            
         }
 
         for (usize i = 0; i < size; i++)
