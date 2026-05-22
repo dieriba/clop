@@ -15,6 +15,7 @@
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
 #define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
+#define EQUAL '='
 
 typedef void (*ConversionFn)(char *to_convert, Value *value);
 
@@ -395,25 +396,35 @@ static char **parse_remaining_operands(Command *root, usize *operand_cursor, cha
 static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
 {
     DStringView long_opt = d_string_view_from_c_string(lng_opt);
+    usize eq_pos = d_string_view_find_first_matching_char_from_start(long_opt, '=');
+    bool has_inline_value = eq_pos != MAX_SIZE_T_VALUE;
+    if (has_inline_value)
+        long_opt = d_string_view_subview(long_opt, 0, eq_pos);
     exit_if_not_valid_long_opt_name(long_opt);
     Option *opt = get_option_by_long(root, long_opt);
-    apply_opt(root, opt, *argv, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
-    return argv + (opt->type != TYPE_BOOL);
+    char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
+    apply_opt(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
+    return argv + (!has_inline_value && opt->type != TYPE_BOOL);
 }
 
 static char **parse_short_opts(Command *root, char *short_opt, char **argv)
 {
-    char *operand = short_opt[1] == 0 ? *argv : &short_opt[1];
     for (size_t i = 0; short_opt[i] != 0; i++)
     {
         exit_if_not_valid_short_opt_name(short_opt[i]);
         Option *opt = get_option_by_short(root, short_opt[i]);
-        apply_opt(root, opt, operand, HYPHEN, &short_opt[i], 1);
-        operand++;
         if (opt->type != TYPE_BOOL)
-            break;
+        {
+            bool consume_next_argv = short_opt[i + 1] == 0;
+            char *operand = consume_next_argv == true   ? *argv
+                            : short_opt[i + 1] == EQUAL ? &short_opt[i + 2]
+                                                        : &short_opt[i + 1];
+            apply_opt(root, opt, operand, HYPHEN, &short_opt[i], 1);
+            return argv + (consume_next_argv == true);
+        }
+        apply_opt(root, opt, NULL, HYPHEN, &short_opt[i], 1);
     }
-    return argv + (operand == *argv);
+    return argv;
 }
 
 static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *operand_cusor)
