@@ -376,7 +376,7 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
             DResult result;
             if ((result = d_dyn_array_push_back(&operand->value.value_list, &list)) != D_OK)
                 clp_eprint("internal error: %s", d_error_print_result_as_str(result));
-            raw_operand = *(argv++);
+            raw_operand = *(++argv);
             if (raw_operand == NULL || (!consume_all && STR_STARTS_WITH_HYPEN(raw_operand)))
                 break;
         }
