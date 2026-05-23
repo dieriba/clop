@@ -28,7 +28,7 @@ void free_command(void *command)
     d_dyn_array_destroy(&cmd->sub_commands);
 
     DDynArray *opts = &cmd->options;
-    for (size_t i = 0; i < opts->array.size; i++)
+    for (usize i = 0; i < opts->array.size; i++)
     {
         Option *opt = d_dyn_array_get_elem_addr_at_safe(opts, i);
         if (opt->type == TYPE_KV)
@@ -311,7 +311,7 @@ static void set_opt_value(Command *root, Option *opt, char *operand, char *prefi
         break;
     case ARG_ACT_LIST:
         DStringView list = d_string_view_from_c_string(operand);
-        size_t i = 0, j = 0;
+        usize i = 0, j = 0;
         while (1)
         {
             j = d_string_view_find_first_matching_char_from_index(list, ',', i);
@@ -409,7 +409,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
 
 static char **parse_short_opts(Command *root, char *short_opt, char **argv)
 {
-    for (size_t i = 0; short_opt[i] != 0; i++)
+    for (usize i = 0; short_opt[i] != 0; i++)
     {
         exit_if_not_valid_short_opt_name(short_opt[i]);
         Option *opt = get_option_by_short(root, short_opt[i]);
@@ -447,7 +447,7 @@ static usize get_command_required_operands_size(Command *root)
     DDynArray *operands = &root->operands;
     usize size = d_dyn_array_get_size_safe(operands);
     usize required = 0;
-    for (size_t i = 0; i < size; i++)
+    for (usize i = 0; i < size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_addr_at_safe(operands, i);
         if (operand->required == true)
