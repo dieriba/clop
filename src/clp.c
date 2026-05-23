@@ -502,7 +502,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
         clp_eprint_exit("command %s: option '--%s' doesn't allow an argument\n", root->name.data, opt->long_name.data);
     const char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
     set_opt_value(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
-    return argv + (*argv != NULL && opt->has_args == true);
+    return argv + (*argv != NULL && has_inline_value == false && opt->has_args == true);
 }
 
 static char **parse_short_opts(Command *root, char *short_opt, char **argv)
