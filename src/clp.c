@@ -315,7 +315,7 @@ static void set_opt_value(Command *root, Option *opt, char *operand, char *prefi
 
     switch (opt->action)
     {
-    case ARG_ACT_SET_UNIQUE:
+    case ARG_ACT_SET:
         if (opt->type != TYPE_BOOL)
         {
             if (operand == NULL)
@@ -426,21 +426,21 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
 
 static char **parse_short_opts(Command *root, char *short_opt, char **argv)
 {
-    for (usize i = 0; short_opt[i] != 0; i++)
+    usize i = 0;
+    do
     {
-        exit_if_not_valid_short_opt_name(short_opt[i]);
         Option *opt = clp_get_option_by_short(root, short_opt[i]);
+        exit_if_invalid_opt(root, opt, HYPHEN, &short_opt[i], 1);
         if (opt->type != TYPE_BOOL)
         {
             bool consume_next_argv = short_opt[i + 1] == 0;
-            char *operand = consume_next_argv == true   ? *argv
-                            : short_opt[i + 1] == EQUAL ? &short_opt[i + 2]
-                                                        : &short_opt[i + 1];
+            char *operand = consume_next_argv == true ? *argv : &short_opt[i + 1];
             set_opt_value(root, opt, operand, HYPHEN, &short_opt[i], 1);
             return argv + (consume_next_argv == true);
         }
         set_opt_value(root, opt, NULL, HYPHEN, &short_opt[i], 1);
-    }
+    } while (short_opt[++i] != 0);
+
     return argv;
 }
 

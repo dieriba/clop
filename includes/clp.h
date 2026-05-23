@@ -43,7 +43,7 @@ typedef enum OptAction
 {
     ARG_ACT_COUNT,
     ARG_ACT_LIST,
-    ARG_ACT_SET_UNIQUE
+    ARG_ACT_SET
 } OptAction;
 
 typedef enum OperanAction
