@@ -356,7 +356,7 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
     usize operands_size = d_dyn_array_get_size_safe(operands);
 
     if (cursor >= operands_size && raw_operand != NULL)
-        clp_eprint_exit("%s too many operands provided\n", root->name.data);
+        clp_eprint_exit("command %s: too many operands provided\n", root->name.data);
     else if (raw_operand == NULL)
         return argv;
 
