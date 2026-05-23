@@ -319,7 +319,7 @@ static void set_opt_value(Command *root, Option *opt, char *operand, char *prefi
         if (opt->type != TYPE_BOOL)
         {
             if (operand == NULL)
-                clp_eprint_exit("%s command '%s%.*s' require a value", root->name, prefix, (int)len_name, opt_name);
+                clp_eprint_exit("command %s: '%s%.*s' option require an argument", root->name, prefix, (int)len_name, opt_name);
             conversion_fn(operand, &opt->value);
         }
         else
