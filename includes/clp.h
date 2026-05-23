@@ -59,7 +59,7 @@ typedef union Value
     usize value_usize;
     double value_double;
     long value_long;
-    char *value_str;
+    const char *value_str;
     bool value_bool;
     char value_char;
 } Value;
@@ -88,9 +88,12 @@ typedef struct Option
     bool has_default_value;
     bool value_set;
     bool global;
+    bool has_args;
 } Option;
 
-typedef struct Command
+typedef struct Command Command;
+
+struct Command
 {
     DDynArray options;
     DDynArray operands;
@@ -100,13 +103,13 @@ typedef struct Command
     DStringView name;
     char *description;
     int code;
-} Command;
+};
 
 typedef enum ClpParseError
 {
     CLP_PARSE_ERR_INVALID_SHORT_OPT_FORMAT,
     CLP_PARSE_ERR_INVALID_LONG_OPT_FORMAT,
-};
+} ClpParseError;
 
 DResult clp_init_command(Command *command, int code, char *name, char *description);
 DResult clp_add_command_sub_command(Command *command, Command *sub_command);
