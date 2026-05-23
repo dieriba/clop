@@ -513,7 +513,7 @@ static void parse(Command *root, char **argv, Command **command)
     ++argv; // skip program name at first call then skip current command name already parsed
     char *s;
     DDynArray *sub_commands = &root->sub_commands;
-    usize size = d_dyn_array_get_size_safe(sub_commands);
+    usize sub_commands_size = d_dyn_array_get_size_safe(sub_commands);
     usize cmd_parsed_operand = 0;
     bool operand_mode = false;
 
@@ -532,7 +532,7 @@ static void parse(Command *root, char **argv, Command **command)
 
         if (operand_mode == false)
         {
-            for (usize i = 0; i < size; i++)
+            for (usize i = 0; i < sub_commands_size; i++)
             {
                 Command *sub_cmd = d_dyn_array_get_elem_addr_at_safe(sub_commands, i);
                 if (d_string_view_compare_against_c_string(sub_cmd->name, s))
