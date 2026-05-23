@@ -170,7 +170,7 @@ DResult clp_add_command_operand(Command *command, Operand *command_operand)
     Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_deref_addr_at_safe(ops, size - 1);
 
     if (get_command_operand_by_name(command, command_operand->name))
-        clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command->name.data);
+        clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command_operand->name.data);
     else if (last_operand != NULL && (last_operand->required == false && command_operand->required == true))
         clp_eprint_exit("command %s: required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
     return d_dyn_array_push_back_ptr(&command->operands, command_operand);
