@@ -1375,8 +1375,70 @@ static void test_subcommand_with_list_operand(void)
 int main(void)
 {
     DTest tests[] = {
-       
-        D_TEST_GENERATE_TEST(test_list_option_in_subcommand),
+        /* null guards */
+        D_TEST_GENERATE_TEST(test_init_command_rejects_null_command),
+        D_TEST_GENERATE_TEST(test_init_command_rejects_null_name),
+        D_TEST_GENERATE_TEST(test_add_option_rejects_null_command),
+        D_TEST_GENERATE_TEST(test_add_option_rejects_null_option),
+        D_TEST_GENERATE_TEST(test_add_operand_rejects_null_command),
+        D_TEST_GENERATE_TEST(test_add_operand_rejects_null_operand),
+        D_TEST_GENERATE_TEST(test_parse_args_rejects_null_root),
+        D_TEST_GENERATE_TEST(test_parse_args_rejects_null_argv),
+        D_TEST_GENERATE_TEST(test_get_option_by_short_returns_null_for_null_command),
+        D_TEST_GENERATE_TEST(test_get_option_by_long_returns_null_for_null_command),
+        D_TEST_GENERATE_TEST(test_get_option_by_long_returns_null_for_empty_view),
+        D_TEST_GENERATE_TEST(test_get_operand_returns_null_for_null_command),
+        /* getters */
+        D_TEST_GENERATE_TEST(test_get_option_by_short_finds_registered_option),
+        D_TEST_GENERATE_TEST(test_get_option_by_short_returns_null_for_unknown),
+        D_TEST_GENERATE_TEST(test_get_option_by_long_finds_registered_option),
+        D_TEST_GENERATE_TEST(test_get_option_by_long_returns_null_for_unknown),
+        D_TEST_GENERATE_TEST(test_get_operand_finds_registered_operand),
+        D_TEST_GENERATE_TEST(test_get_operand_returns_null_for_unknown),
+        /* bool flags */
+        D_TEST_GENERATE_TEST(test_long_bool_flag_sets_value),
+        D_TEST_GENERATE_TEST(test_short_bool_flag_sets_value),
+        D_TEST_GENERATE_TEST(test_unprovided_optional_bool_stays_unset),
+        D_TEST_GENERATE_TEST(test_combined_short_bool_flags),
+        D_TEST_GENERATE_TEST(test_multiple_separate_short_bool_flags),
+        D_TEST_GENERATE_TEST(test_combined_flags_only_set_found_options),
+        /* non-bool option values */
+        D_TEST_GENERATE_TEST(test_short_opt_inline_value),
+        D_TEST_GENERATE_TEST(test_short_opt_next_argv_value),
+        D_TEST_GENERATE_TEST(test_long_opt_inline_eq_value),
+        D_TEST_GENERATE_TEST(test_long_opt_next_argv_value),
+        D_TEST_GENERATE_TEST(test_combined_bools_then_inline_value_opt),
+        /* count */
+        D_TEST_GENERATE_TEST(test_count_option_increments_once),
+        D_TEST_GENERATE_TEST(test_count_option_increments_multiple_times),
+        D_TEST_GENERATE_TEST(test_count_option_combined_short),
+        D_TEST_GENERATE_TEST(test_count_option_mixed_short_and_long),
+        /* list options */
+        D_TEST_GENERATE_TEST(test_list_option_single_entry),
+        D_TEST_GENERATE_TEST(test_list_option_comma_separated),
+        /* operands */
+        D_TEST_GENERATE_TEST(test_single_operand_is_set),
+        D_TEST_GENERATE_TEST(test_options_and_operand_together),
+        D_TEST_GENERATE_TEST(test_option_after_operand),
+        D_TEST_GENERATE_TEST(test_multiple_operands),
+        D_TEST_GENERATE_TEST(test_double_hyphen_terminates_option_parsing),
+        D_TEST_GENERATE_TEST(test_double_hyphen_with_options_before),
+        D_TEST_GENERATE_TEST(test_list_operand_consumes_remaining_args),
+        /* subcommands */
+        D_TEST_GENERATE_TEST(test_subcommand_is_dispatched),
+        D_TEST_GENERATE_TEST(test_subcommand_with_own_option),
+        D_TEST_GENERATE_TEST(test_no_subcommand_leaves_command_null),
+        D_TEST_GENERATE_TEST(test_multiple_subcommands_dispatch_correct_one),
+        /* type conversions */
+        D_TEST_GENERATE_TEST(test_usize_option_parses_decimal),
+        D_TEST_GENERATE_TEST(test_long_option_parses_negative),
+        D_TEST_GENERATE_TEST(test_char_option_parses_single_char),
+        /* edge cases */
+        D_TEST_GENERATE_TEST(test_long_opt_empty_inline_value),
+        D_TEST_GENERATE_TEST(test_option_interleaved_with_operands),
+        D_TEST_GENERATE_TEST(test_bool_option_set_twice_is_ok),
+        D_TEST_GENERATE_TEST(test_no_args_with_optional_options),
+        D_TEST_GENERATE_TEST(test_long_opt_with_hyphen_in_name),
     };
     D_TEST_RUN_TESTS(tests);
     return 0;

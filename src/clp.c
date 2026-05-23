@@ -29,7 +29,6 @@ void free_command(void *command)
     Command *cmd = command;
     d_dyn_array_destroy(&cmd->sub_commands);
     DDynArray *opts = &cmd->options;
-    printf("Size: %lu\n", opts->array.size);
     for (usize i = 0; i < opts->array.size; i++)
     {
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
@@ -42,7 +41,6 @@ void free_command(void *command)
     d_dyn_array_destroy(&cmd->options);
 
     DDynArray *operands = &cmd->operands;
-    printf("Size: %lu\n", operands->array.size);
     for (usize i = 0; i < operands->array.size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
@@ -252,15 +250,19 @@ DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char
         clp_eprint_exit("count action requires an integer type [u8 u16 u32 u64]\n");
     }
 
-    if (action == ARG_ACT_LIST && d_dyn_array_init(&opt->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
-        return D_ERR_ALLOC;
+    if (has_default_value == false && action == ARG_ACT_LIST)
+    {
+        if (d_dyn_array_init(&opt->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
+            return D_ERR_ALLOC;
+    }
+    else
+        opt->value = value;
 
     opt->value_set = false;
     opt->action = action;
     opt->short_name = shrt_name;
     opt->description = description == NULL ? NO_DESC : description;
     opt->has_default_value = has_default_value;
-    opt->value = value;
     opt->type = type;
     opt->required = required;
     opt->global = global;
@@ -273,14 +275,18 @@ DResult clp_init_operand_raw(Operand *operand, char *name, char *description, bo
     if (operand == NULL || name == NULL || *name == 0)
         return D_ERR_INVALID_ARG;
 
-    if (action == OPERAND_ACT_LIST && d_dyn_array_init(&operand->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
-        return D_ERR_ALLOC;
+    if (has_default_value == false && action == OPERAND_ACT_LIST)
+    {
+        if (d_dyn_array_init(&operand->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
+            return D_ERR_ALLOC;
+    }
+    else
+        operand->value = value;
 
     operand->value_set = false;
     operand->action = action;
     operand->description = description == NULL ? NO_DESC : description;
     operand->has_default_value = has_default_value;
-    operand->value = value;
     operand->type = type;
     operand->required = required;
     operand->name = d_string_view_from_c_string(name);
