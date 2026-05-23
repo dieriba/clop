@@ -419,6 +419,8 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
     exit_if_not_valid_long_opt_name(long_opt);
     Option *opt = clp_get_option_by_long(root, long_opt);
     exit_if_invalid_opt(root, opt, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
+    if (has_inline_value && opt->type == TYPE_BOOL)
+        clp_eprint_exit("command %s: option '--%s' doesn't allow an argument\n", root->name, opt->long_name.data);
     char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
     set_opt_value(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     return argv + (!has_inline_value && opt->type != TYPE_BOOL);
