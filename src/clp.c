@@ -89,6 +89,21 @@ Option *clp_get_option_by_long(Command *command, DStringView lng)
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
 
+Operand *clp_get_operand(Command *command, DStringView operand_name)
+{
+    if (command == NULL)
+        return NULL;
+    DDynArray *operands = &command->operands;
+    usize size = d_dyn_array_get_size_safe(operands);
+    for (usize i = 0; i < size; i++)
+    {
+        Operand *operand = d_dyn_array_get_elem_addr_at_safe(operands, i);
+        if (d_string_view_compare(operand->name, operand_name))
+            return operand;
+    }
+    return NULL;
+}
+
 static Option *get_option_by_predicate(Command *command, void *ctx, bool (*predicate)(Option *, void *))
 {
     DDynArray *opts = &command->options;

@@ -117,5 +117,6 @@ DResult clp_init_operand_raw(Operand *operands, char *name, char *description, b
 DResult clp_parse_args(Command *root, char **argv, Command **command);
 Option *clp_get_option_by_short(Command *command, char shrt);
 Option *clp_get_option_by_long(Command *command, DStringView lng);
+Operand *clp_get_operand(Command *command, DStringView operand_name);
 void clp_cleanup(Command *root);
 #endif
