@@ -72,6 +72,8 @@ static inline bool eq_short_opt(Option *opt, void *ctx)
 
 Option *clp_get_option_by_short(Command *command, char shrt)
 {
+    if (command == NULL)
+        return NULL;
     return get_option_by_predicate(command, &shrt, eq_short_opt);
 }
 
@@ -82,6 +84,8 @@ static inline bool eq_long_opt(Option *opt, void *ctx)
 
 Option *clp_get_option_by_long(Command *command, DStringView lng)
 {
+    if (command == NULL || lng.size == 0)
+        return NULL;
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
 
