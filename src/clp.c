@@ -389,13 +389,10 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
     return argv;
 }
 
-static void apply_opt(Command *root, Option *opt, char *operand, char *prefix, char *name, usize len)
+static inline void exit_if_invalid_opt(Command *root, Option *opt, char *prefix, char *name, usize len)
 {
     if (opt == NULL)
         clp_eprint_exit("%s command unknown option '%s%.*s'\n", root->name, prefix, (int)len, name);
-    if (opt->value_set && opt->action == ARG_ACT_SET_UNIQUE)
-        clp_eprint_exit("%s command option '%s%.*s' cannot be specified more than once\n", root->name, prefix, (int)len, name);
-    set_opt_value(root, opt, operand, prefix, name, len);
 }
 
 static char **parse_remaining_operands(Command *root, usize *operand_cursor, char **argv)
@@ -421,8 +418,9 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
         long_opt = d_string_view_subview(long_opt, 0, eq_pos);
     exit_if_not_valid_long_opt_name(long_opt);
     Option *opt = clp_get_option_by_long(root, long_opt);
+    exit_if_invalid_opt(root, opt, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
-    apply_opt(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
+    set_opt_value(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     return argv + (!has_inline_value && opt->type != TYPE_BOOL);
 }
 
@@ -438,10 +436,10 @@ static char **parse_short_opts(Command *root, char *short_opt, char **argv)
             char *operand = consume_next_argv == true   ? *argv
                             : short_opt[i + 1] == EQUAL ? &short_opt[i + 2]
                                                         : &short_opt[i + 1];
-            apply_opt(root, opt, operand, HYPHEN, &short_opt[i], 1);
+            set_opt_value(root, opt, operand, HYPHEN, &short_opt[i], 1);
             return argv + (consume_next_argv == true);
         }
-        apply_opt(root, opt, NULL, HYPHEN, &short_opt[i], 1);
+        set_opt_value(root, opt, NULL, HYPHEN, &short_opt[i], 1);
     }
     return argv;
 }
