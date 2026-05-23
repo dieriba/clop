@@ -70,7 +70,7 @@ static inline bool eq_short_opt(Option *opt, void *ctx)
     return opt->short_name == *(char *)ctx;
 }
 
-Option *get_option_by_short(Command *command, char shrt)
+Option *clp_get_option_by_short(Command *command, char shrt)
 {
     return get_option_by_predicate(command, &shrt, eq_short_opt);
 }
@@ -80,7 +80,7 @@ static inline bool eq_long_opt(Option *opt, void *ctx)
     return d_string_view_compare(opt->long_name, *((DStringView *)ctx));
 }
 
-Option *get_option_by_long(Command *command, DStringView lng)
+Option *clp_get_option_by_long(Command *command, DStringView lng)
 {
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
@@ -102,9 +102,9 @@ DResult clp_add_command_option(Command *command, Option *command_option)
 {
     if (command == NULL || command_option == NULL)
         return D_ERR_INVALID_ARG;
-    if (get_option_by_long(command, command_option->long_name))
+    if (clp_get_option_by_long(command, command_option->long_name))
         clp_eprint_exit("%s command option '--%s' already registered\n", command->name.data, command_option->long_name);
-    if (get_option_by_short(command, command_option->short_name))
+    if (clp_get_option_by_short(command, command_option->short_name))
         clp_eprint_exit("%s command option '-%c' already registered\n", command->name.data, command_option->short_name);
     return d_dyn_array_push_back(&command->options, command_option);
 }
@@ -401,7 +401,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
     if (has_inline_value)
         long_opt = d_string_view_subview(long_opt, 0, eq_pos);
     exit_if_not_valid_long_opt_name(long_opt);
-    Option *opt = get_option_by_long(root, long_opt);
+    Option *opt = clp_get_option_by_long(root, long_opt);
     char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
     apply_opt(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     return argv + (!has_inline_value && opt->type != TYPE_BOOL);
@@ -412,7 +412,7 @@ static char **parse_short_opts(Command *root, char *short_opt, char **argv)
     for (usize i = 0; short_opt[i] != 0; i++)
     {
         exit_if_not_valid_short_opt_name(short_opt[i]);
-        Option *opt = get_option_by_short(root, short_opt[i]);
+        Option *opt = clp_get_option_by_short(root, short_opt[i]);
         if (opt->type != TYPE_BOOL)
         {
             bool consume_next_argv = short_opt[i + 1] == 0;
