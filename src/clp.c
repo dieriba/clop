@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include "clp.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
@@ -16,8 +17,10 @@
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
 #define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
 #define EQUAL '='
+#define TRUE_STR "true"
+#define FALSE_STR "false"
 
-typedef void (*ConversionFn)(char *to_convert, Value *value);
+typedef char *(*ConversionFn)(char *to_convert, Value *value);
 
 void free_command(void *command)
 {
@@ -257,34 +260,72 @@ DResult clp_init_operand_raw(Operand *operands, char *name, char *description, b
     return D_OK;
 }
 
-static void s_to_usize(char *s, Value *value)
+static char *s_to_usize(char *s, Value *value)
 {
+    char *endptr;
+    errno = 0;
+    value->value_usize = strtoull(s, &endptr, 10);
+
+    if (errno == ERANGE)
+        return "number to high";
+    else if (endptr == s || *endptr != 0)
+        return "unexpected digit";
+
+    return NULL;
 }
 
-static void s_to_double(char *s, Value *value)
+static char *s_to_long(char *s, Value *value)
 {
+    char *endptr;
+    errno = 0;
+    value->value_usize = strtoll(s, &endptr, 10);
+
+    if (errno == ERANGE)
+        return "value too high/low ";
+    else if (endptr == s || *endptr != 0)
+        return "unexpected digit";
+
+    return NULL;
 }
 
-static void s_to_long(char *s, Value *value)
+static char *s_to_double(char *s, Value *value)
 {
+    char *endptr;
+    value->value_double = strtod(s, &endptr);
+
+    if (errno == ERANGE)
+        return "value too high/low ";
+    else if (endptr == s || *endptr != 0)
+        return "unexpected digit";
+    return NULL;
 }
 
-static void s_to_char(char *s, Value *value)
+static char *s_to_char(char *s, Value *value)
 {
+    char c = s[0];
+    if (c == 0)
+        return "cannot parse char from empty string";
+    if (s[1] != 0)
+        return "too many characters in string";
+    value->value_char = c;
+    return NULL;
 }
 
-static void s_to_string(char *s, Value *value)
+static char *s_to_string(char *s, Value *value)
 {
+    value->value_str = s;
+    return s;
 }
 
-static void s_to_bool(char *s, Value *value)
+static char *s_to_bool(char *s, Value *value)
 {
-}
-
-static void set_bool(char *s, Value *value)
-{
-    (void)s;
-    value->value_bool = true;
+    if (s[0] == TRUE_STR[0] && strcmp(s, TRUE_STR) == 0)
+        value->value_bool = true;
+    else if (s[0] == FALSE_STR[0] && strcmp(s, FALSE_STR) == 0)
+        value->value_bool = false;
+    else
+        return "expected string to be \"true\" or \"false\"";
+    return NULL;
 }
 
 static ConversionFn type_to_conversion_fn(Type type)
@@ -319,8 +360,10 @@ static void set_opt_value(Command *root, Option *opt, char *operand, char *prefi
         if (opt->type != TYPE_BOOL)
         {
             if (operand == NULL)
-                clp_eprint_exit("command %s: '%s%.*s' option require an argument", root->name, prefix, (int)len_name, opt_name);
-            conversion_fn(operand, &opt->value);
+                clp_eprint_exit("command %s: '%s%.*s' option require an argument", root->name.data, prefix, (int)len_name, opt_name);
+            char *err_msg = conversion_fn(operand, &opt->value);
+            if (err_msg)
+                clp_eprint_exit("command %s: invalid value '%s' for '%s%.*s': %s", root->name.data, operand, prefix, (int)len_name, opt_name, err_msg);
         }
         else
             opt->value.value_bool = true;
@@ -366,7 +409,9 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
     switch (operand->action)
     {
     case OPERAND_ACT_SET:
-        conversion_fn(raw_operand, &operand->value);
+        char *err_msg = conversion_fn(raw_operand, &operand->value);
+        if (err_msg)
+            clp_eprint_exit("command %s: invalid value '%s' for '<%s>': %s", root->name.data, raw_operand, operand->name.data, err_msg);
         argv++;
         break;
     case OPERAND_ACT_LIST:
