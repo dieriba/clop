@@ -122,9 +122,9 @@ DResult clp_add_command_option(Command *command, Option *command_option)
     if (command == NULL || command_option == NULL)
         return D_ERR_INVALID_ARG;
     if (clp_get_option_by_long(command, command_option->long_name))
-        clp_eprint_exit("%s command option '--%s' already registered\n", command->name.data, command_option->long_name);
+        clp_eprint_exit("command %s: option '--%s' already registered\n", command->name.data, command_option->long_name.data);
     if (clp_get_option_by_short(command, command_option->short_name))
-        clp_eprint_exit("%s command option '-%c' already registered\n", command->name.data, command_option->short_name);
+        clp_eprint_exit("command %s: option '-%c' already registered\n", command->name.data, command_option->short_name);
     return d_dyn_array_push_back(&command->options, command_option);
 }
 
@@ -152,7 +152,7 @@ DResult clp_add_command_operand(Command *command, Operand *command_operand)
     if (get_command_operand_by_name(command, command_operand->name))
         clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command->name.data);
     else if (last_operand != NULL && (last_operand->required == false && command_operand->required == true))
-        clp_eprint_exit("%s command required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
+        clp_eprint_exit("command %s: required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
     return d_dyn_array_push_back(&command->operands, command_operand);
 }
 
@@ -392,7 +392,7 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
 static inline void exit_if_invalid_opt(Command *root, Option *opt, char *prefix, char *name, usize len)
 {
     if (opt == NULL)
-        clp_eprint_exit("%s command unknown option '%s%.*s'\n", root->name, prefix, (int)len, name);
+        clp_eprint_exit("command %s: unknown option '%s%.*s'\n", root->name.data, prefix, (int)len, name);
 }
 
 static char **parse_remaining_operands(Command *root, usize *operand_cursor, char **argv)
@@ -420,7 +420,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
     Option *opt = clp_get_option_by_long(root, long_opt);
     exit_if_invalid_opt(root, opt, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     if (has_inline_value && opt->type == TYPE_BOOL)
-        clp_eprint_exit("command %s: option '--%s' doesn't allow an argument\n", root->name, opt->long_name.data);
+        clp_eprint_exit("command %s: option '--%s' doesn't allow an argument\n", root->name.data, opt->long_name.data);
     char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
     set_opt_value(root, opt, operand, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     return argv + (!has_inline_value && opt->type != TYPE_BOOL);
