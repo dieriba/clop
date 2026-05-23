@@ -442,18 +442,51 @@ static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *ope
     return argv;
 }
 
-static usize get_command_required_operands_size(Command *root)
+static void exit_if_command_required_nb_opts_not_met(Command *root)
+{
+    DDynArray *opts = &root->options;
+    usize size = d_dyn_array_get_size_safe(opts);
+    bool required_opts_not_set = false;
+    for (size_t i = 0; i < size; i++)
+    {
+        Option *opt = d_dyn_array_get_elem_addr_at_safe(opts, i);
+        if (opt->required == true && opt->value_set == false)
+        {
+            if (required_opts_not_set == false)
+            {
+                clp_eprint("command %s: the following options were not provided:\n", root->name.data);
+                required_opts_not_set = true;
+            }
+            if (opt->long_name.size != 0)
+                clp_eprint("--%s\n", opt->long_name.data);
+            else
+                clp_eprint("-%c\n", opt->short_name);
+        }
+    }
+    if (required_opts_not_set)
+        exit(EXIT_FAILURE);
+}
+
+static void exit_if_command_required_nb_operands_size_not_met(Command *root)
 {
     DDynArray *operands = &root->operands;
     usize size = d_dyn_array_get_size_safe(operands);
-    usize required = 0;
-    for (usize i = 0; i < size; i++)
+    bool required_operands_not_set = false;
+    for (size_t i = 0; i < size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_addr_at_safe(operands, i);
-        if (operand->required == true)
-            required++;
+        if (operand->required == true && operand->value_set == false)
+        {
+            if (required_operands_not_set == false)
+            {
+                clp_eprint("command %s: the following operands were not provided:\n", root->name.data);
+                required_operands_not_set = true;
+            }
+            clp_eprint("<%s>\n", operand->name.data);
+        }
     }
-    return required;
+    if (required_operands_not_set)
+        exit(EXIT_FAILURE);
 }
 
 static void parse(Command *root, char **argv, Command **command)
@@ -497,8 +530,8 @@ static void parse(Command *root, char **argv, Command **command)
         argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
     }
 
-    if (cmd_parsed_operand < get_command_required_operands_size(root))
-        clp_eprint_exit("%s too few operands provided\n", root->name.data);
+    exit_if_command_required_nb_operands_size_not_met(root);
+    exit_if_command_required_nb_opts_not_met(root);
 }
 
 DResult clp_parse_args(Command *root, char **argv, Command **command)
