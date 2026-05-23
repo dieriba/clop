@@ -365,7 +365,7 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
 
     switch (operand->action)
     {
-    case OPERAND_ACT_SET_UNIQUE:
+    case OPERAND_ACT_SET:
         conversion_fn(raw_operand, &operand->value);
         argv++;
         break;

@@ -49,7 +49,7 @@ typedef enum OptAction
 typedef enum OperanAction
 {
     OPERAND_ACT_LIST,
-    OPERAND_ACT_SET_UNIQUE
+    OPERAND_ACT_SET
 } OperanAction;
 
 typedef union Value
