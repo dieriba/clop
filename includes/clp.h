@@ -105,12 +105,6 @@ struct Command
     int code;
 };
 
-typedef enum ClpParseError
-{
-    CLP_PARSE_ERR_INVALID_SHORT_OPT_FORMAT,
-    CLP_PARSE_ERR_INVALID_LONG_OPT_FORMAT,
-} ClpParseError;
-
 void clp_init_command(Command *command, int code, char *name, char *description);
 void clp_add_command_sub_command(Command *command, Command *sub_command);
 void clp_add_command_option(Command *command, Option *command_option);
