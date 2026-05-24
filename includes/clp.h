@@ -111,13 +111,13 @@ typedef enum ClpParseError
     CLP_PARSE_ERR_INVALID_LONG_OPT_FORMAT,
 } ClpParseError;
 
-DResult clp_init_command(Command *command, int code, char *name, char *description);
-DResult clp_add_command_sub_command(Command *command, Command *sub_command);
-DResult clp_add_command_option(Command *command, Option *command_option);
-DResult clp_add_command_operand(Command *command, Operand *command_operand);
-DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
-DResult clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required);
-DResult clp_parse_args(Command *root, char **argv, Command **command);
+void clp_init_command(Command *command, int code, char *name, char *description);
+void clp_add_command_sub_command(Command *command, Command *sub_command);
+void clp_add_command_option(Command *command, Option *command_option);
+void clp_add_command_operand(Command *command, Operand *command_operand);
+void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
+void clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required);
+void clp_parse_args(Command *root, char **argv, Command **command);
 Option *clp_get_option_by_short(Command *command, char shrt);
 Option *clp_get_option_by_long(Command *command, DStringView lng);
 Operand *clp_get_operand(Command *command, DStringView operand_name);

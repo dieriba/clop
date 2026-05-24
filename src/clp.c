@@ -14,6 +14,7 @@
 #define UNDERSCORE "_"
 #define clp_eprint(...) eprint(clp, __VA_ARGS__)
 #define clp_eprint_exit(...) eprint_exit(clp, __VA_ARGS__)
+#define clp_invalid_arg_exit(...) clp_eprint_exit("invalid argument: " __VA_ARGS__)
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
 #define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
 #define EQUAL '='
@@ -61,28 +62,29 @@ static void _free_command(void **command)
     free_command(*command);
 }
 
-DResult clp_init_command(Command *command, int code, char *name, char *description)
+void clp_init_command(Command *command, int code, char *name, char *description)
 {
     if (command == NULL || name == NULL)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_init_command\n");
     command->name = d_string_view_from_c_string(name);
     command->description = description == NULL ? NO_DESC : description;
     command->code = code;
     command->parent_command = NULL;
-    DResult op_result;
 
-    if ((op_result = d_dyn_array_default_ptr_arr_init(&command->sub_commands, (DestroyElemFn)_free_command, NULL, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_ptr_arr_init(&command->options, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK ||
-        (op_result = d_dyn_array_default_ptr_arr_init(&command->extra, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK || (op_result = d_dyn_array_default_ptr_arr_init(&command->operands, NULL, NULL, RAW_BUF_OPT_NONE)) != D_OK)
-        return op_result;
-    return D_OK;
+    if (d_dyn_array_default_ptr_arr_init(&command->sub_commands, (DestroyElemFn)_free_command, NULL, RAW_BUF_OPT_NONE) != D_OK ||
+        d_dyn_array_default_ptr_arr_init(&command->options, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK ||
+        d_dyn_array_default_ptr_arr_init(&command->extra, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK ||
+        d_dyn_array_default_ptr_arr_init(&command->operands, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
+        clp_eprint_exit("out of memory\n");
 }
 
-DResult clp_add_command_sub_command(Command *command, Command *sub_command)
+void clp_add_command_sub_command(Command *command, Command *sub_command)
 {
     if (command == NULL || sub_command == NULL)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_add_command_sub_command\n");
     sub_command->parent_command = command;
-    return d_dyn_array_push_back_ptr(&command->sub_commands, sub_command);
+    if (d_dyn_array_push_back_ptr(&command->sub_commands, sub_command) != D_OK)
+        clp_eprint_exit("out of memory\n");
 }
 
 static inline bool eq_short_opt(Option *opt, void *ctx)
@@ -137,15 +139,16 @@ Operand *clp_get_operand(Command *command, DStringView operand_name)
     return NULL;
 }
 
-DResult clp_add_command_option(Command *command, Option *command_option)
+void clp_add_command_option(Command *command, Option *command_option)
 {
     if (command == NULL || command_option == NULL)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_add_command_option\n");
     if (clp_get_option_by_long(command, command_option->long_name))
         clp_eprint_exit("command %s: option '--%s' already registered\n", command->name.data, command_option->long_name.data);
     if (clp_get_option_by_short(command, command_option->short_name))
         clp_eprint_exit("command %s: option '-%c' already registered\n", command->name.data, command_option->short_name);
-    return d_dyn_array_push_back_ptr(&command->options, command_option);
+    if (d_dyn_array_push_back_ptr(&command->options, command_option) != D_OK)
+        clp_eprint_exit("out of memory\n");
 }
 
 static Operand *get_command_operand_by_name(Command *command, DStringView name)
@@ -161,10 +164,10 @@ static Operand *get_command_operand_by_name(Command *command, DStringView name)
     return NULL;
 }
 
-DResult clp_add_command_operand(Command *command, Operand *command_operand)
+void clp_add_command_operand(Command *command, Operand *command_operand)
 {
     if (command == NULL || command_operand == NULL)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_add_command_operand\n");
     DDynArray *ops = &command->operands;
     usize size = d_dyn_array_get_size_safe(ops);
     Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_deref_addr_at_safe(ops, size - 1);
@@ -173,7 +176,8 @@ DResult clp_add_command_operand(Command *command, Operand *command_operand)
         clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command_operand->name.data);
     else if (last_operand != NULL && (last_operand->required == false && command_operand->required == true))
         clp_eprint_exit("command %s: required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
-    return d_dyn_array_push_back_ptr(&command->operands, command_operand);
+    if (d_dyn_array_push_back_ptr(&command->operands, command_operand) != D_OK)
+        clp_eprint_exit("out of memory\n");
 }
 
 static bool is_valid_short(char shrt)
@@ -228,11 +232,11 @@ static void exit_if_not_valid_short_opt_name(char short_opt)
     }
 }
 
-DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
-                            OptAction action, Value value, Type type, bool required, bool global)
+void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
+                         OptAction action, Value value, Type type, bool required, bool global)
 {
     if (opt == NULL || (long_name == NULL && short_name == NULL))
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_init_option_raw\n");
     char shrt_name = FLAG_SHORT_OPT_NOT_SET;
     opt->long_name = d_string_view_from_c_string(long_name);
 
@@ -253,7 +257,7 @@ DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char
     if (has_default_value == false && action == ARG_ACT_LIST)
     {
         if (d_dyn_array_init(&opt->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
-            return D_ERR_ALLOC;
+            clp_eprint_exit("out of memory\n");
     }
     else
         opt->value = value;
@@ -267,18 +271,17 @@ DResult clp_init_option_raw(Option *opt, char *long_name, char *short_name, char
     opt->required = required;
     opt->global = global;
     opt->has_args = !(type == TYPE_BOOL || action == ARG_ACT_COUNT);
-    return D_OK;
 }
 
-DResult clp_init_operand_raw(Operand *operand, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required)
+void clp_init_operand_raw(Operand *operand, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required)
 {
     if (operand == NULL || name == NULL || *name == 0)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_init_operand_raw\n");
 
     if (has_default_value == false && action == OPERAND_ACT_LIST)
     {
         if (d_dyn_array_init(&operand->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
-            return D_ERR_ALLOC;
+            clp_eprint_exit("out of memory\n");
     }
     else
         operand->value = value;
@@ -290,8 +293,6 @@ DResult clp_init_operand_raw(Operand *operand, char *name, char *description, bo
     operand->type = type;
     operand->required = required;
     operand->name = d_string_view_from_c_string(name);
-
-    return D_OK;
 }
 
 static char *s_to_usize(const char *s, Value *value)
@@ -414,7 +415,7 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
             DStringView sub = d_string_view_subview(list, i, j - i);
             DResult result;
             if ((result = d_dyn_array_push_back(&opt->value.value_list, &sub)) != D_OK)
-                clp_eprint("internal error: %s", d_error_print_result_as_str(result));
+                clp_eprint_exit("error: %s", d_error_print_result_as_str(result));
             if (j == MAX_SIZE_T_VALUE)
                 break;
             i = j + 1;
@@ -454,7 +455,7 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
             DStringView list = d_string_view_from_c_string(raw_operand);
             DResult result;
             if ((result = d_dyn_array_push_back(&operand->value.value_list, &list)) != D_OK)
-                clp_eprint("internal error: %s", d_error_print_result_as_str(result));
+                clp_eprint_exit("%s", d_error_print_result_as_str(result));
             raw_operand = *(++argv);
             if (raw_operand == NULL || (!consume_all && STR_STARTS_WITH_HYPEN(raw_operand)))
                 break;
@@ -631,12 +632,11 @@ static void parse(Command *root, char **argv, Command **command)
     exit_if_command_required_nb_opts_not_met(root);
 }
 
-DResult clp_parse_args(Command *root, char **argv, Command **command)
+void clp_parse_args(Command *root, char **argv, Command **command)
 {
     if (root == NULL || argv == NULL || *argv == NULL)
-        return D_ERR_INVALID_ARG;
+        clp_invalid_arg_exit("null argument to clp_parse_args\n");
     parse(root, argv, command);
-    return D_OK;
 }
 
 void clp_cleanup(Command *root)
