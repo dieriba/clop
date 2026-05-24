@@ -60,6 +60,7 @@ typedef struct
 {
     int status;
     char err[512];
+    char out[1024];
 } ChildResult;
 
 static ChildResult run_child(void (*fn)(void))
@@ -81,6 +82,32 @@ static ChildResult run_child(void (*fn)(void))
     while ((n = read(pfd[0], r.err + total, sizeof(r.err) - 1 - total)) > 0)
         total += n;
     r.err[total] = '\0';
+    close(pfd[0]);
+    int st = 0;
+    waitpid(pid, &st, 0);
+    r.status = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+    return r;
+}
+
+static ChildResult run_child_stdout(void (*fn)(void))
+{
+    int pfd[2];
+    pipe(pfd);
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        close(pfd[0]);
+        dup2(pfd[1], STDOUT_FILENO);
+        close(pfd[1]);
+        fn();
+        _exit(0);
+    }
+    close(pfd[1]);
+    ChildResult r = {0};
+    ssize_t total = 0, n;
+    while ((n = read(pfd[0], r.out + total, sizeof(r.out) - 1 - total)) > 0)
+        total += n;
+    r.out[total] = '\0';
     close(pfd[0]);
     int st = 0;
     waitpid(pid, &st, 0);
@@ -2491,6 +2518,152 @@ static void test_unknown_short_in_combined_token_exits(void)
     D_TEST_NOT_NULL(strstr(r.err, "-z"));
 }
 
+/* ── help / -h built-in ─────────────────────────────────────────────────── */
+
+/* registering "help" as a long option name is rejected (reserved) */
+static void _err_register_help_as_long_opt(void)
+{
+    Option opt;
+    clp_init_option_raw(&opt, "help", "H", NULL, false, ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+}
+static void test_registering_help_long_opt_exits(void)
+{
+    ChildResult r = run_child(_err_register_help_as_long_opt);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "reserved option"));
+    D_TEST_NOT_NULL(strstr(r.err, "help"));
+}
+
+/* --help exits with success and prints description */
+static void _help_long_opt_prog(void)
+{
+    Command root;
+    clp_init_command(&root, 0, "prog", "a test program");
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_long_help_exits_success_and_prints_description(void)
+{
+    ChildResult r = run_child_stdout(_help_long_opt_prog);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Description:"));
+    D_TEST_NOT_NULL(strstr(r.out, "a test program"));
+}
+
+/* -h exits with success and prints description when no user -h is registered */
+static void _help_short_opt_prog(void)
+{
+    Command root;
+    clp_init_command(&root, 0, "prog", "a test program");
+    char *argv[] = {"prog", "-h", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_short_help_exits_success_when_not_user_defined(void)
+{
+    ChildResult r = run_child_stdout(_help_short_opt_prog);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Description:"));
+}
+
+/* -h processes as normal option when user has registered their own -h */
+static void test_short_help_not_triggered_when_user_defined_h(void)
+{
+    Command root;
+    Option h;
+    clp_init_command(&root, 0, "prog", "test");
+    clp_init_option_raw(&h, NULL, "h", NULL, false, ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_add_command_option(&root, &h);
+    char *argv[] = {"prog", "-h", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(h.value_set == true);
+    D_TEST_EXPR(h.value.value_bool == true);
+    clp_cleanup(&root);
+}
+
+/* help output includes Options: section with registered option names */
+static void _help_with_options(void)
+{
+    Command root;
+    Option verbose;
+    clp_init_command(&root, 0, "prog", "a test program");
+    init_bool_opt(&verbose, "verbose", "v", false);
+    clp_add_command_option(&root, &verbose);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_help_output_includes_options_section(void)
+{
+    ChildResult r = run_child_stdout(_help_with_options);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Options:"));
+    D_TEST_NOT_NULL(strstr(r.out, "--verbose"));
+}
+
+/* help output includes Commands: section with registered subcommand names */
+static void _help_with_subcommand(void)
+{
+    Command root, add;
+    clp_init_command(&root, 0, "prog", "a test program");
+    clp_init_command(&add, 1, "add", "add files");
+    clp_add_command_sub_command(&root, &add);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_help_output_includes_commands_section(void)
+{
+    ChildResult r = run_child_stdout(_help_with_subcommand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Commands:"));
+    D_TEST_NOT_NULL(strstr(r.out, "add"));
+}
+
+/* help output includes Arguments: section with registered operand names */
+static void _help_with_operand(void)
+{
+    Command root;
+    Operand file;
+    clp_init_command(&root, 0, "prog", "a test program");
+    init_str_operand(&file, "file", false);
+    clp_add_command_operand(&root, &file);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_help_output_includes_arguments_section(void)
+{
+    ChildResult r = run_child_stdout(_help_with_operand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Arguments:"));
+    D_TEST_NOT_NULL(strstr(r.out, "<file>"));
+}
+
+/* prog subcmd --help shows the subcommand's own help, not root's */
+static void _help_on_subcommand(void)
+{
+    Command root, push;
+    Option force;
+    clp_init_command(&root, 0, "prog", "root program");
+    clp_init_command(&push, 1, "push", "push changes");
+    init_bool_opt(&force, "force", "f", false);
+    clp_add_command_option(&push, &force);
+    clp_add_command_sub_command(&root, &push);
+    char *argv[] = {"prog", "push", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_help_on_subcommand_shows_subcommand_info(void)
+{
+    ChildResult r = run_child_stdout(_help_on_subcommand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "push changes"));
+    D_TEST_NOT_NULL(strstr(r.out, "--force"));
+}
+
 /* ── main ───────────────────────────────────────────────────────────────── */
 
 int main(void)
@@ -2629,6 +2802,15 @@ int main(void)
         D_TEST_GENERATE_TEST(test_invalid_double_operand_value_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_options_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_operands_exits),
+        /* help / -h built-in */
+        D_TEST_GENERATE_TEST(test_registering_help_long_opt_exits),
+        D_TEST_GENERATE_TEST(test_long_help_exits_success_and_prints_description),
+        D_TEST_GENERATE_TEST(test_short_help_exits_success_when_not_user_defined),
+        D_TEST_GENERATE_TEST(test_short_help_not_triggered_when_user_defined_h),
+        D_TEST_GENERATE_TEST(test_help_output_includes_options_section),
+        D_TEST_GENERATE_TEST(test_help_output_includes_commands_section),
+        D_TEST_GENERATE_TEST(test_help_output_includes_arguments_section),
+        D_TEST_GENERATE_TEST(test_help_on_subcommand_shows_subcommand_info),
     };
     D_TEST_RUN_TESTS(tests);
     return 0;
