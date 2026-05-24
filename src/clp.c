@@ -650,7 +650,7 @@ static void exit_print_help(Command *root)
 static inline void exit_help_or_if_invalid_opt(Command *root, Option *opt, char *prefix, const char *name, usize len)
 {
 
-    if (len == sizeof(HELP_OPT) && PSEUDO_FAST_STRCMP(name, HELP_OPT))
+    if (len == sizeof(HELP_OPT) - 1 && PSEUDO_FAST_STRCMP(name, HELP_OPT))
         exit_print_help(root);
 
     if (opt == NULL)
