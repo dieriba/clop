@@ -112,6 +112,7 @@ void clp_add_command_operand(Command *command, Operand *command_operand);
 void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
 void clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required);
 void clp_parse_args(Command *root, char **argv, Command **command);
+void print_command_help(Command *root);
 Option *clp_get_option_by_short(Command *command, char shrt);
 Option *clp_get_option_by_long(Command *command, DStringView lng);
 Operand *clp_get_operand(Command *command, DStringView operand_name);

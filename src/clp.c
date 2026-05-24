@@ -1,5 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 #include "clp.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
@@ -20,6 +22,8 @@
 #define EQUAL '='
 #define TRUE_STR "true"
 #define FALSE_STR "false"
+#define HELP_OPT "help"
+#define PSEUDO_FAST_STRCMP(s1, s2) ((s1[0] == s2[0]) && strcmp(s1, s2) == 0)
 
 typedef char *(*ConversionFn)(const char *to_convert, Value *value);
 
@@ -60,7 +64,7 @@ static void _free_command(void **command)
     free_command(*command);
 }
 
-void clp_init_command(Command *command, int code, char *name, char *description, char *usage)
+void clp_init_command(Command *command, int code, char *name, char *description)
 {
     if (command == NULL || name == NULL)
         clp_invalid_arg_exit("null argument to clp_init_command\n");
@@ -241,7 +245,11 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
     if (short_name)
         exit_if_not_valid_short_opt_name(shrt_name = *short_name);
     if (long_name)
+    {
+        if (PSEUDO_FAST_STRCMP(long_name, HELP_OPT))
+            clp_invalid_arg_exit("%s is a reserved option\n", long_name);
         exit_if_not_valid_long_opt_name(opt->long_name);
+    }
 
     if (action == ARG_ACT_COUNT && type != TYPE_USIZE)
     {
@@ -352,9 +360,9 @@ static char *s_to_string(const char *s, Value *value)
 
 static char *s_to_bool(const char *s, Value *value)
 {
-    if (s[0] == TRUE_STR[0] && strcmp(s, TRUE_STR) == 0)
+    if (PSEUDO_FAST_STRCMP(s, TRUE_STR))
         value->value_bool = true;
-    else if (s[0] == FALSE_STR[0] && strcmp(s, FALSE_STR) == 0)
+    else if (PSEUDO_FAST_STRCMP(s, FALSE_STR))
         value->value_bool = false;
     else
         return "expected string to be \"true\" or \"false\"";
@@ -467,10 +475,190 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
     return argv;
 }
 
-static inline void exit_if_invalid_opt(Command *root, Option *opt, char *prefix, const char *name, usize len)
+#define HELP_COL_GAP 4
+
+static usize opt_name_width(Option *opt)
 {
+    usize w = 0;
+    bool has_short = opt->short_name != (char)FLAG_SHORT_OPT_NOT_SET;
+    bool has_long  = opt->long_name.size > 0;
+
+    if (has_short)
+        w += 2; /* -X */
+    if (has_short && has_long)
+        w += 2; /* ", " */
+    else if (!has_short && has_long)
+        w += 4; /* leading spaces to align with "-X, " */
+    if (has_long)
+        w += 2 + opt->long_name.size; /* --name */
+    if (opt->has_args)
+        w += 2 + strlen(type_to_str(opt->type)); /* <type> */
+    return w;
+}
+
+static usize sub_cmd_name_width(Command *cmd)
+{
+    return cmd->name.size;
+}
+
+static usize operand_name_width(Operand *op)
+{
+    return op->name.size + 2; /* <name> */
+}
+
+static usize max_col_width(Command *root)
+{
+    usize max = 0;
+
+    DDynArray *opts = &root->options;
+    usize size = d_dyn_array_get_size_safe(opts);
+    for (usize i = 0; i < size; i++)
+    {
+        Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
+        usize w = opt_name_width(opt);
+        if (w > max)
+            max = w;
+    }
+
+    DDynArray *cmds = &root->sub_commands;
+    size = d_dyn_array_get_size_safe(cmds);
+    for (usize i = 0; i < size; i++)
+    {
+        Command *sub = d_dyn_array_get_elem_deref_addr_at_safe(cmds, i);
+        usize w = sub_cmd_name_width(sub);
+        if (w > max)
+            max = w;
+    }
+
+    DDynArray *ops = &root->operands;
+    size = d_dyn_array_get_size_safe(ops);
+    for (usize i = 0; i < size; i++)
+    {
+        Operand *op = d_dyn_array_get_elem_deref_addr_at_safe(ops, i);
+        usize w = operand_name_width(op);
+        if (w > max)
+            max = w;
+    }
+
+    return max;
+}
+
+static void print_options(DDynArray *opts, usize col_width)
+{
+    usize n = d_dyn_array_get_size_safe(opts);
+    for (usize i = 0; i < n; i++)
+    {
+        Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
+        bool has_short = opt->short_name != (char)FLAG_SHORT_OPT_NOT_SET;
+        bool has_long  = opt->long_name.size > 0;
+        usize written  = 0;
+
+        printf("  ");
+        if (has_short)
+        {
+            printf("-%c", opt->short_name);
+            written += 2;
+            if (has_long)
+            {
+                printf(", ");
+                written += 2;
+            }
+        }
+        else if (has_long)
+        {
+            printf("    ");
+            written += 4;
+        }
+        if (has_long)
+        {
+            printf("--%.*s", (int)opt->long_name.size, opt->long_name.data);
+            written += 2 + opt->long_name.size;
+        }
+        if (opt->has_args)
+        {
+            const char *ts = type_to_str(opt->type);
+            printf(" <%s>", ts);
+            written += 2 + strlen(ts);
+        }
+        printf("%*s%s\n", (int)(col_width - written + HELP_COL_GAP), "", opt->description);
+    }
+}
+
+static void print_sub_commands(DDynArray *cmds, usize col_width)
+{
+    usize n = d_dyn_array_get_size_safe(cmds);
+    for (usize i = 0; i < n; i++)
+    {
+        Command *sub = d_dyn_array_get_elem_deref_addr_at_safe(cmds, i);
+        printf("  %.*s%*s%s\n",
+               (int)sub->name.size, sub->name.data,
+               (int)(col_width - sub->name.size + HELP_COL_GAP), "",
+               sub->description);
+    }
+}
+
+static void print_operands(DDynArray *ops, usize col_width)
+{
+    usize n = d_dyn_array_get_size_safe(ops);
+    for (usize i = 0; i < n; i++)
+    {
+        Operand *op = d_dyn_array_get_elem_deref_addr_at_safe(ops, i);
+        usize name_w = op->name.size + 2;
+        printf("  <%.*s>%*s%s\n",
+               (int)op->name.size, op->name.data,
+               (int)(col_width - name_w + HELP_COL_GAP), "",
+               op->description);
+    }
+}
+
+void print_command_help(Command *root)
+{
+    usize col = max_col_width(root);
+
+    printf("Description: %s\n\n", root->description);
+
+    bool has_opts = d_dyn_array_get_size_safe(&root->options) > 0;
+    bool has_cmds = d_dyn_array_get_size_safe(&root->sub_commands) > 0;
+    bool has_ops  = d_dyn_array_get_size_safe(&root->operands) > 0;
+
+    if (has_opts)
+    {
+        printf("Options:\n");
+        print_options(&root->options, col);
+        printf("\n");
+    }
+    if (has_cmds)
+    {
+        printf("Commands:\n");
+        print_sub_commands(&root->sub_commands, col);
+        printf("\n");
+    }
+    if (has_ops)
+    {
+        printf("Arguments:\n");
+        print_operands(&root->operands, col);
+        printf("\n");
+    }
+}
+
+static void exit_print_help(Command *root)
+{
+    print_command_help(root);
+    exit(EXIT_SUCCESS);
+}
+
+static inline void exit_help_or_if_invalid_opt(Command *root, Option *opt, char *prefix, const char *name, usize len)
+{
+
+    if (len == sizeof(HELP_OPT) && PSEUDO_FAST_STRCMP(name, HELP_OPT))
+        exit_print_help(root);
+
     if (opt == NULL)
+    {
+        if (prefix[1] == 0 && name[0] == HELP_OPT[0]) // if prefix[1] == 0 then we know it is a short option
+            exit_print_help(root);                    // printing command help only if user has not define a short option with 'h'
         clp_eprint_exit("command %s: unknown option '%s%.*s'\n", root->name.data, prefix, (int)len, name);
+    }
 }
 
 static char **parse_remaining_operands(Command *root, usize *operand_cursor, char **argv)
@@ -496,7 +684,7 @@ static char **parse_long_opt(Command *root, char *lng_opt, char **argv)
         long_opt = d_string_view_subview(long_opt, 0, eq_pos);
     exit_if_not_valid_long_opt_name(long_opt);
     Option *opt = clp_get_option_by_long(root, long_opt);
-    exit_if_invalid_opt(root, opt, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
+    exit_help_or_if_invalid_opt(root, opt, DOUBLE_HYPHEN, long_opt.data, long_opt.size);
     if (has_inline_value && opt->has_args == false)
         clp_eprint_exit("command %s: option '--%s' doesn't allow an argument\n", root->name.data, opt->long_name.data);
     const char *operand = has_inline_value ? &long_opt.data[eq_pos + 1] : *argv;
@@ -510,7 +698,7 @@ static char **parse_short_opts(Command *root, char *short_opt, char **argv)
     do
     {
         Option *opt = clp_get_option_by_short(root, short_opt[i]);
-        exit_if_invalid_opt(root, opt, HYPHEN, &short_opt[i], 1);
+        exit_help_or_if_invalid_opt(root, opt, HYPHEN, &short_opt[i], 1);
         if (opt->has_args == true)
         {
             bool consume_next_argv = short_opt[i + 1] == 0;
