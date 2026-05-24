@@ -57,12 +57,10 @@ void free_command(void *command)
 
 static void _free_command(void **command)
 {
-    if (command == NULL)
-        return;
     free_command(*command);
 }
 
-void clp_init_command(Command *command, int code, char *name, char *description)
+void clp_init_command(Command *command, int code, char *name, char *description, char *usage)
 {
     if (command == NULL || name == NULL)
         clp_invalid_arg_exit("null argument to clp_init_command\n");
