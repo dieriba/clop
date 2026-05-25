@@ -4,7 +4,7 @@ BUILD_DIR := $(TARGET_DIR)/build
 LIB_NAME := libclp.a
 BUILD_LIB := $(BUILD_DIR)/lib/$(LIB_NAME)
 
-C_LIB_DIR  := c_lib
+C_LIB_DIR  := libs/c_lib
 C_LIB      := $(C_LIB_DIR)/target/build/lib/libd_lib.a
 
 SRC_DIRS := src
