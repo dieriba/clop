@@ -41,16 +41,16 @@ typedef enum Type
 
 typedef enum OptAction
 {
-    ARG_ACT_COUNT,
-    ARG_ACT_LIST,
-    ARG_ACT_SET
+    OPT_ACT_COUNT,
+    OPT_ACT_LIST,
+    OPT_ACT_SET
 } OptAction;
 
-typedef enum OperanAction
+typedef enum OpndAction
 {
-    OPERAND_ACT_LIST,
-    OPERAND_ACT_SET
-} OperanAction;
+    OPND_ACT_LIST,
+    OPND_ACT_SET
+} OpndAction;
 
 typedef union Value
 {
@@ -69,7 +69,7 @@ typedef struct Operand
     Value value;
     DStringView name;
     char *description;
-    OperanAction action;
+    OpndAction action;
     Type type;
     bool required;
     bool has_default_value;
@@ -110,10 +110,10 @@ void clp_add_command_sub_command(Command *command, Command *sub_command);
 void clp_add_command_option(Command *command, Option *command_option);
 void clp_add_command_operand(Command *command, Operand *command_operand);
 void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
-void clp_init_operand_raw(Operand *operands, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required);
+void clp_init_OPND_raw(Operand *operands, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required);
 void clp_parse_args(Command *root, char **argv, Command **command);
 Option *clp_get_option_by_short(Command *command, char shrt);
 Option *clp_get_option_by_long(Command *command, DStringView lng);
-Operand *clp_get_operand(Command *command, DStringView operand_name);
+Operand *clp_get_operand(Command *command, DStringView OPND_name);
 void clp_cleanup(Command *root);
 #endif

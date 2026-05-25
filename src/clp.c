@@ -110,7 +110,7 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
         exit_if_not_valid_long_opt_name(opt->long_name);
     }
 
-    if (action == ARG_ACT_COUNT && type != TYPE_USIZE)
+    if (action == OPT_ACT_COUNT && type != TYPE_USIZE)
     {
         if (long_name)
             clp_eprint("option '--%s' has action 'count' but type '%s' is not valid\n", long_name, type_to_str(type));
@@ -119,7 +119,7 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
         clp_eprint_exit("count action requires an integer type [u8 u16 u32 u64]\n");
     }
 
-    if (has_default_value == false && action == ARG_ACT_LIST)
+    if (has_default_value == false && action == OPT_ACT_LIST)
     {
         if (d_dyn_array_init(&opt->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
             clp_eprint_exit("out of memory\n");
@@ -135,15 +135,15 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
     opt->type = type;
     opt->required = required;
     opt->global = global;
-    opt->has_args = !(type == TYPE_BOOL || action == ARG_ACT_COUNT);
+    opt->has_args = !(type == TYPE_BOOL || action == OPT_ACT_COUNT);
 }
 
-void clp_init_operand_raw(Operand *operand, char *name, char *description, bool has_default_value, OperanAction action, Value value, Type type, bool required)
+void clp_init_OPND_raw(Operand *operand, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required)
 {
     if (operand == NULL || name == NULL || *name == 0)
-        clp_invalid_arg_exit("null argument to clp_init_operand_raw\n");
+        clp_invalid_arg_exit("null argument to clp_init_OPND_raw\n");
 
-    if (has_default_value == false && action == OPERAND_ACT_LIST)
+    if (has_default_value == false && action == OPND_ACT_LIST)
     {
         if (d_dyn_array_init(&operand->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
             clp_eprint_exit("out of memory\n");
@@ -183,7 +183,7 @@ static Option *get_option_by_predicate(Command *command, void *ctx, bool (*predi
     return NULL;
 }
 
-static Operand *get_command_operand_by_name(Command *command, DStringView name)
+static Operand *get_command_OPND_by_name(Command *command, DStringView name)
 {
     DDynArray *operands = &command->operands;
     usize size = d_dyn_array_get_size_safe(operands);
@@ -210,7 +210,7 @@ Option *clp_get_option_by_long(Command *command, DStringView lng)
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
 
-Operand *clp_get_operand(Command *command, DStringView operand_name)
+Operand *clp_get_operand(Command *command, DStringView OPND_name)
 {
     if (command == NULL)
         return NULL;
@@ -219,7 +219,7 @@ Operand *clp_get_operand(Command *command, DStringView operand_name)
     for (usize i = 0; i < size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
-        if (d_string_view_compare(operand->name, operand_name))
+        if (d_string_view_compare(operand->name, OPND_name))
             return operand;
     }
     return NULL;
@@ -260,7 +260,7 @@ void clp_add_command_operand(Command *command, Operand *command_operand)
     usize size = d_dyn_array_get_size_safe(ops);
     Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_deref_addr_at_safe(ops, size - 1);
 
-    if (get_command_operand_by_name(command, command_operand->name))
+    if (get_command_OPND_by_name(command, command_operand->name))
         clp_eprint("warning: operand name '%s' already used, consider a more descriptive name\n", command_operand->name.data);
     else if (last_operand != NULL && (last_operand->required == false && command_operand->required == true))
         clp_eprint_exit("command %s: required operand '%s' cannot follow optional operand '%s'\n", command->name.data, command_operand->name.data, last_operand->name.data);
@@ -292,7 +292,7 @@ static usize sub_cmd_name_width(Command *cmd)
     return cmd->name.size;
 }
 
-static usize operand_name_width(Operand *op)
+static usize OPND_name_width(Operand *op)
 {
     return op->name.size + 2; /* <name> */
 }
@@ -326,7 +326,7 @@ static usize max_col_width(Command *root)
     for (usize i = 0; i < size; i++)
     {
         Operand *op = d_dyn_array_get_elem_deref_addr_at_safe(ops, i);
-        usize w = operand_name_width(op);
+        usize w = OPND_name_width(op);
         if (w > max)
             max = w;
     }
@@ -441,7 +441,7 @@ static void print_usage_line(FILE *stream, Command *command)
             if (operand->required == false)
                 continue;
             fprintf(stream, "<%s>", operand->name.data);
-            if (operand->action == OPERAND_ACT_LIST)
+            if (operand->action == OPND_ACT_LIST)
                 fprintf(stream, "...");
             fprintf(stream, " ");
         }
@@ -583,7 +583,7 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
 
     switch (opt->action)
     {
-    case ARG_ACT_SET:
+    case OPT_ACT_SET:
         if (opt->type != TYPE_BOOL)
         {
             if (operand == NULL)
@@ -596,10 +596,10 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
         else
             opt->value.value_bool = true;
         break;
-    case ARG_ACT_COUNT:
+    case OPT_ACT_COUNT:
         opt->value.value_usize++;
         break;
-    case ARG_ACT_LIST:
+    case OPT_ACT_LIST:
         DStringView list = d_string_view_from_c_string(operand);
         usize i = 0, j = 0;
         while (1)
@@ -621,7 +621,7 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
         opt->value_set = true;
 }
 
-static char **set_operand_value(Command *root, usize cursor, char *raw_operand, char **argv, bool consume_all)
+static char **set_OPND_value(Command *root, usize cursor, char *raw_operand, char **argv, bool consume_all)
 {
     DDynArray *operands = &root->operands;
     usize operands_size = d_dyn_array_get_size_safe(operands);
@@ -636,13 +636,13 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
 
     switch (operand->action)
     {
-    case OPERAND_ACT_SET:
+    case OPND_ACT_SET:
         char *err_msg = conversion_fn(raw_operand, &operand->value);
         if (err_msg)
             clp_eprint_exit("command %s: invalid value '%s' for '<%s>': %s", root->name.data, raw_operand, operand->name.data, err_msg);
         argv++;
         break;
-    case OPERAND_ACT_LIST:
+    case OPND_ACT_LIST:
         while (1)
         {
             DStringView list = d_string_view_from_c_string(raw_operand);
@@ -662,17 +662,17 @@ static char **set_operand_value(Command *root, usize cursor, char *raw_operand, 
     return argv;
 }
 
-static char **parse_remaining_operands(Command *root, usize *operand_cursor, char **argv)
+static char **parse_remaining_operands(Command *root, usize *OPND_cursor, char **argv)
 {
-    usize cursor = *operand_cursor;
+    usize cursor = *OPND_cursor;
     while (1)
     {
-        argv = set_operand_value(root, cursor, *argv, argv, true);
+        argv = set_OPND_value(root, cursor, *argv, argv, true);
         if (*argv == NULL)
             break;
         cursor++;
     }
-    *operand_cursor = cursor;
+    *OPND_cursor = cursor;
     return argv;
 }
 
@@ -712,13 +712,13 @@ static char **parse_short_opts(Command *root, char *short_opt, char **argv)
     return argv;
 }
 
-static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *operand_cusor)
+static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *OPND_cusor)
 {
     ++argv;
     if (STR_STARTS_WITH_HYPEN(arg))
     {
         if (arg[1] == 0)
-            argv = parse_remaining_operands(root, operand_cusor, argv);
+            argv = parse_remaining_operands(root, OPND_cusor, argv);
         else
             argv = parse_long_opt(root, &arg[1], argv);
     }
@@ -787,7 +787,7 @@ static void parse(Command *root, char **argv, Command **command)
             continue;
         }
     PARSE_OPERAND:
-        argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
+        argv = set_OPND_value(root, cmd_parsed_operand++, s, argv, false);
     }
 
     command_collect_parent_commands_options(root);
@@ -813,7 +813,7 @@ void free_command(void *command)
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
         if (opt->type == TYPE_KV)
             d_unordered_map_destroy(&opt->value.value_kv);
-        else if (opt->action == ARG_ACT_LIST)
+        else if (opt->action == OPT_ACT_LIST)
             d_dyn_array_destroy(&opt->value.value_list);
     }
 
@@ -825,7 +825,7 @@ void free_command(void *command)
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
         if (operand->type == TYPE_KV)
             d_unordered_map_destroy(&operand->value.value_kv);
-        else if (operand->action == OPERAND_ACT_LIST)
+        else if (operand->action == OPND_ACT_LIST)
             d_dyn_array_destroy(&operand->value.value_list);
     }
 
