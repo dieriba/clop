@@ -1572,6 +1572,142 @@ static void test_subcommand_with_list_operand(void)
     clp_cleanup(&root);
 }
 
+/* ── global options inherited from parent to child ──────────────────────── */
+
+/* global bool option set before subcommand is accessible after dispatch */
+static void test_global_option_set_at_parent_accessible_after_dispatch(void)
+{
+    Command root, push;
+    Option verbose;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_add_command_option(&root, &verbose);
+    clp_add_command_sub_command(&root, &push);
+
+    char *argv[] = {"prog", "--verbose", "push", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(cmd == &push);
+    D_TEST_EXPR(verbose.value_set == true);
+    clp_cleanup(&root);
+}
+
+/* required global option set at parent level satisfies child required check */
+static void test_required_global_option_set_at_parent_satisfies_child(void)
+{
+    Command root, push;
+    Option token;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    clp_init_option_raw(&token, "token", "t", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_STR, true, true);
+    clp_add_command_option(&root, &token);
+    clp_add_command_sub_command(&root, &push);
+
+    char *argv[] = {"prog", "--token", "abc", "push", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(cmd == &push);
+    D_TEST_EXPR(token.value_set == true);
+    D_TEST_STR_EQ(token.value.value_str, "abc");
+    clp_cleanup(&root);
+}
+
+/* required global option NOT set — child required check catches it when child has args */
+static void _err_required_global_option_unset_in_child(void)
+{
+    Command root, push;
+    Option token, force;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    clp_init_option_raw(&token, "token", "t", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_STR, true, true);
+    init_bool_opt(&force, "force", "f", false);
+    clp_add_command_option(&root, &token);
+    clp_add_command_option(&push, &force);
+    clp_add_command_sub_command(&root, &push);
+
+    char *argv[] = {"prog", "push", "--force", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_required_global_option_unset_exits_via_child(void)
+{
+    ChildResult r = run_child(_err_required_global_option_unset_in_child);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "the following options were not provided"));
+    D_TEST_NOT_NULL(strstr(r.err, "--token"));
+    D_TEST_NOT_NULL(strstr(r.err, "push"));
+}
+
+/* non-global required option on parent is NOT inherited — child check ignores it */
+static void test_non_global_required_option_not_inherited_to_child(void)
+{
+    Command root, push;
+    Option token;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    clp_init_option_raw(&token, "token", "t", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_add_command_option(&root, &token);
+    clp_add_command_sub_command(&root, &push);
+
+    char *argv[] = {"prog", "push", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(cmd == &push);
+    D_TEST_EXPR(token.value_set == false);
+    clp_cleanup(&root);
+}
+
+/* global option propagates all the way to a deeply nested command */
+static void test_global_option_inherited_through_nested_levels(void)
+{
+    Command root, remote, add;
+    Option verbose;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&remote, 1, "remote", NULL);
+    clp_init_command(&add, 2, "add", NULL);
+    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_add_command_option(&root, &verbose);
+    clp_add_command_sub_command(&root, &remote);
+    clp_add_command_sub_command(&remote, &add);
+
+    char *argv[] = {"prog", "--verbose", "remote", "add", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(cmd == &add);
+    D_TEST_EXPR(verbose.value_set == true);
+    clp_cleanup(&root);
+}
+
+/* multiple global options from parent are all inherited */
+static void test_multiple_global_options_all_inherited(void)
+{
+    Command root, push;
+    Option verbose, dry_run;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_init_option_raw(&dry_run, "dry-run", "n", NULL, false,
+                        ARG_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_add_command_option(&root, &verbose);
+    clp_add_command_option(&root, &dry_run);
+    clp_add_command_sub_command(&root, &push);
+
+    char *argv[] = {"prog", "--verbose", "--dry-run", "push", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+    D_TEST_EXPR(cmd == &push);
+    D_TEST_EXPR(verbose.value_set == true);
+    D_TEST_EXPR(dry_run.value_set == true);
+    clp_cleanup(&root);
+}
+
 /* ── 5-level deep command with 20 options and 20 operands ───────────────── */
 
 static void test_five_level_deep_with_many_options_and_operands(void)
@@ -2925,6 +3061,13 @@ int main(void)
         D_TEST_GENERATE_TEST(test_root_option_before_two_level_subcommand),
         D_TEST_GENERATE_TEST(test_no_args_with_subcommands_registered),
         D_TEST_GENERATE_TEST(test_subcommand_with_list_operand),
+        /* global options inherited from parent to child */
+        D_TEST_GENERATE_TEST(test_global_option_set_at_parent_accessible_after_dispatch),
+        D_TEST_GENERATE_TEST(test_required_global_option_set_at_parent_satisfies_child),
+        D_TEST_GENERATE_TEST(test_required_global_option_unset_exits_via_child),
+        D_TEST_GENERATE_TEST(test_non_global_required_option_not_inherited_to_child),
+        D_TEST_GENERATE_TEST(test_global_option_inherited_through_nested_levels),
+        D_TEST_GENERATE_TEST(test_multiple_global_options_all_inherited),
         /* 5-level deep stress test */
         D_TEST_GENERATE_TEST(test_five_level_deep_with_many_options_and_operands),
         /* error / exit paths */

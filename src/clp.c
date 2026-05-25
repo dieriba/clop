@@ -727,6 +727,22 @@ static char **interpret_hyphen(Command *root, char *arg, char **argv, usize *ope
     return argv;
 }
 
+static void command_collect_parent_commands_options(Command *command)
+{
+    DDynArray *opts = &command->options;
+
+    while ((command = command->parent_command) != NULL)
+    {
+        DDynArray *curr_opts = &command->options;
+        for (size_t i = 0; i < d_dyn_array_get_size_safe(curr_opts); i++)
+        {
+            Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(curr_opts, i);
+            if (opt->global && d_dyn_array_push_back_ptr(opts, opt) != D_OK)
+                clp_eprint_exit("out of memory\n");
+        }
+    }
+}
+
 static void parse(Command *root, char **argv, Command **command)
 {
     ++argv; // skip program name at first call then skip current command name already parsed
@@ -774,6 +790,7 @@ static void parse(Command *root, char **argv, Command **command)
         argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
     }
 
+    command_collect_parent_commands_options(root);
     exit_print_command_required_args_if_miss_required_args(root);
 }
 
