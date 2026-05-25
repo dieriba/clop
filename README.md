@@ -4,20 +4,7 @@ A C static library for building command-line interfaces with options, operands, 
 
 ## Building
 
-```sh
-git clone --recurse-submodules https://github.com/dieriba/clp.git
-cd clp
-make        # builds target/build/lib/libclp.a
-make tests  # builds and links the test binary
-```
-
-Link against `libclp.a` and `libd_lib.a` (the bundled dependency under `libs/c_lib`).
-
-```
--I./includes
-target/build/lib/libclp.a
-libs/c_lib/target/build/lib/libd_lib.a
-```
+See [BUILDING.md](BUILDING.md).
 
 ---
 
