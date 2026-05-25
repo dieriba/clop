@@ -580,7 +580,6 @@ static void exit_print_usage_if_misused_command(Command *command)
 
 static void set_opt_value(Command *root, Option *opt, const char *operand, char *prefix, const char *opt_name, usize len_name)
 {
-    ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
 
     switch (opt->action)
     {
@@ -589,6 +588,7 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
         {
             if (operand == NULL)
                 clp_eprint_exit("command %s: '%s%.*s' option require an argument", root->name.data, prefix, (int)len_name, opt_name);
+            ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
             char *err_msg = conversion_fn(operand, &opt->value);
             if (err_msg)
                 clp_eprint_exit("command %s: invalid value '%s' for '%s%.*s': %s", root->name.data, operand, prefix, (int)len_name, opt_name, err_msg);
