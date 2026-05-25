@@ -5,6 +5,7 @@
 #include "clp.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
+#include "converter.h"
 
 #define NO_DESC "no associated description"
 #define START_OPT_CHAR '-'
@@ -20,12 +21,9 @@
 #define FLAG_SHORT_OPT_NOT_SET 0xFF
 #define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
 #define EQUAL '='
-#define TRUE_STR "true"
-#define FALSE_STR "false"
 #define HELP_OPT "help"
 #define PSEUDO_FAST_STRCMP(s1, s2) ((s1[0] == s2[0]) && strcmp(s1, s2) == 0)
 
-typedef char *(*ConversionFn)(const char *to_convert, Value *value);
 
 void free_command(void *command)
 {
@@ -301,96 +299,6 @@ void clp_init_operand_raw(Operand *operand, char *name, char *description, bool 
     operand->name = d_string_view_from_c_string(name);
 }
 
-static char *s_to_usize(const char *s, Value *value)
-{
-    char *endptr;
-    errno = 0;
-    value->value_usize = strtoull(s, &endptr, 10);
-
-    if (errno == ERANGE)
-        return "number to high";
-    else if (endptr == s || *endptr != 0)
-        return "unexpected digit";
-
-    return NULL;
-}
-
-static char *s_to_long(const char *s, Value *value)
-{
-    char *endptr;
-    errno = 0;
-    value->value_usize = strtoll(s, &endptr, 10);
-
-    if (errno == ERANGE)
-        return "value too high/low ";
-    else if (endptr == s || *endptr != 0)
-        return "unexpected digit";
-
-    return NULL;
-}
-
-static char *s_to_double(const char *s, Value *value)
-{
-    char *endptr;
-    value->value_double = strtod(s, &endptr);
-
-    if (errno == ERANGE)
-        return "value too high/low ";
-    else if (endptr == s || *endptr != 0)
-        return "unexpected digit";
-    return NULL;
-}
-
-static char *s_to_char(const char *s, Value *value)
-{
-    char c = s[0];
-    if (c == 0)
-        return "cannot parse char from empty string";
-    if (s[1] != 0)
-        return "too many characters in string";
-    value->value_char = c;
-    return NULL;
-}
-
-static char *s_to_string(const char *s, Value *value)
-{
-    value->value_str = s;
-    return NULL;
-}
-
-static char *s_to_bool(const char *s, Value *value)
-{
-    if (PSEUDO_FAST_STRCMP(s, TRUE_STR))
-        value->value_bool = true;
-    else if (PSEUDO_FAST_STRCMP(s, FALSE_STR))
-        value->value_bool = false;
-    else
-        return "expected string to be \"true\" or \"false\"";
-    return NULL;
-}
-
-static ConversionFn type_to_conversion_fn(Type type)
-{
-    switch (type)
-    {
-    case TYPE_USIZE:
-        return s_to_usize;
-    case TYPE_LONG:
-        return s_to_long;
-    case TYPE_STR:
-        return s_to_string;
-    case TYPE_CHAR:
-        return s_to_char;
-    case TYPE_DOUBLE:
-        return s_to_double;
-    case TYPE_BOOL:
-        return s_to_bool;
-    default:
-        break;
-    }
-    return NULL;
-}
-
 static void set_opt_value(Command *root, Option *opt, const char *operand, char *prefix, const char *opt_name, usize len_name)
 {
     ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
@@ -481,7 +389,7 @@ static usize opt_name_width(Option *opt)
 {
     usize w = 0;
     bool has_short = opt->short_name != (char)FLAG_SHORT_OPT_NOT_SET;
-    bool has_long  = opt->long_name.size > 0;
+    bool has_long = opt->long_name.size > 0;
 
     if (has_short)
         w += 2; /* -X */
@@ -550,8 +458,8 @@ static void print_options(DDynArray *opts, usize col_width)
     {
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
         bool has_short = opt->short_name != (char)FLAG_SHORT_OPT_NOT_SET;
-        bool has_long  = opt->long_name.size > 0;
-        usize written  = 0;
+        bool has_long = opt->long_name.size > 0;
+        usize written = 0;
 
         printf("  ");
         if (has_short)
@@ -619,7 +527,7 @@ void print_command_help(Command *root)
 
     bool has_opts = d_dyn_array_get_size_safe(&root->options) > 0;
     bool has_cmds = d_dyn_array_get_size_safe(&root->sub_commands) > 0;
-    bool has_ops  = d_dyn_array_get_size_safe(&root->operands) > 0;
+    bool has_ops = d_dyn_array_get_size_safe(&root->operands) > 0;
 
     if (has_opts)
     {
