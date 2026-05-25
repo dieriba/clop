@@ -1,5 +1,6 @@
 #ifndef CONVERTER_H
 #define CONVERTER_H
+#include "clp.h"
 typedef char *(*ConversionFn)(const char *to_convert, Value *value);
 
 char *s_to_bool(const char *s, Value *value);
