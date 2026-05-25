@@ -8,25 +8,61 @@
 #include "d_unordered_map.h"
 
 #define clp_init_option(opt, long_name, short_name, description, type, required, global) \
-    clp_init_option_raw(opt, long_name, short_name, description, false, (Value){0}, type, required, global)
+    clp_init_option_raw(opt, long_name, short_name, description, false, OPT_ACT_SET, (Value){0}, type, required, global)
 
 #define clp_init_option_default_long(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_long = (def)}, TYPE_LONG, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_long = (def)}, TYPE_LONG, req, glob)
 
 #define clp_init_option_default_bool(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_bool = (def)}, TYPE_BOOL, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_bool = (def)}, TYPE_BOOL, req, glob)
 
 #define clp_init_option_default_usize(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_usize = (def)}, TYPE_USIZE, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_usize = (def)}, TYPE_USIZE, req, glob)
 
 #define clp_init_option_default_str(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_str = (def)}, TYPE_STR, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_str = (def)}, TYPE_STR, req, glob)
 
 #define clp_init_option_default_char(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_char = (def)}, TYPE_CHAR, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_char = (def)}, TYPE_CHAR, req, glob)
 
 #define clp_init_option_default_double(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, (Value){.value_double = (def)}, TYPE_DOUBLE, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_double = (def)}, TYPE_DOUBLE, req, glob)
+
+#define clp_init_option_count(opt, ln, sn, desc, glob) \
+    clp_init_option_raw(opt, ln, sn, desc, false, OPT_ACT_COUNT, (Value){0}, TYPE_USIZE, false, glob)
+
+#define clp_init_option_list(opt, ln, sn, desc, required, glob) \
+    clp_init_option_raw(opt, ln, sn, desc, false, OPT_ACT_LIST, (Value){0}, TYPE_STR, required, glob)
+
+#define clp_init_option_kv(opt, ln, sn, desc, required, glob) \
+    clp_init_option_raw(opt, ln, sn, desc, false, OPT_ACT_KV, (Value){0}, TYPE_STR, required, glob)
+
+#define clp_init_opnd(op, name, description, type, required) \
+    clp_init_opnd_raw(op, name, description, false, OPND_ACT_SET, (Value){0}, type, required)
+
+#define clp_init_opnd_default_long(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_long = (def)}, TYPE_LONG, req)
+
+#define clp_init_opnd_default_bool(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_bool = (def)}, TYPE_BOOL, req)
+
+#define clp_init_opnd_default_usize(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_usize = (def)}, TYPE_USIZE, req)
+
+#define clp_init_opnd_default_str(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_str = (def)}, TYPE_STR, req)
+
+#define clp_init_opnd_default_char(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_char = (def)}, TYPE_CHAR, req)
+
+#define clp_init_opnd_default_double(op, name, desc, def, req) \
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_double = (def)}, TYPE_DOUBLE, req)
+
+#define clp_init_opnd_list(op, name, desc, required) \
+    clp_init_opnd_raw(op, name, desc, false, OPND_ACT_LIST, (Value){0}, TYPE_STR, required)
+
+#define clp_init_opnd_kv(op, name, desc, required) \
+    clp_init_opnd_raw(op, name, desc, false, OPND_ACT_KV, (Value){0}, TYPE_STR, required)
 
 typedef enum Type
 {
