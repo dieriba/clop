@@ -10,58 +10,42 @@
 
 static void init_bool_opt(Option *opt, char *lng, char *sht, bool required)
 {
-    clp_init_option_raw(opt, lng, sht, NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_BOOL, required, false);
+    clp_init_option(opt, lng, sht, NULL, TYPE_BOOL, required, false);
 }
 
 static void init_str_opt(Option *opt, char *lng, char *sht, bool required)
 {
-    clp_init_option_raw(opt, lng, sht, NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_STR, required, false);
+    clp_init_option(opt, lng, sht, NULL, TYPE_STR, required, false);
 }
 
 static void init_count_opt(Option *opt, char *lng, char *sht)
 {
-    clp_init_option_raw(opt, lng, sht, NULL, false,
-                        OPT_ACT_COUNT, (Value){0},
-                        TYPE_USIZE, false, false);
+    clp_init_option_count(opt, lng, sht, NULL, false);
 }
 
 static void init_list_opt(Option *opt, char *lng, char *sht)
 {
-    Value v = {0};
-    D_TEST_EXPR(d_dyn_array_default_init(&v.value_list, DStringView, NULL, NULL, RAW_BUF_OPT_NONE) == D_OK);
-    clp_init_option_raw(opt, lng, sht, NULL, false,
-                        OPT_ACT_LIST, v,
-                        TYPE_STR, false, false);
+    clp_init_option_list(opt, lng, sht, NULL, false, false);
 }
 
 static void init_str_operand(Operand *op, char *name, bool required)
 {
-    clp_init_opnd_raw(op, name, NULL, false,
-                      OPND_ACT_SET, (Value){0},
-                      TYPE_STR, required);
+    clp_init_opnd(op, name, NULL, TYPE_STR, required);
 }
 
 static void init_list_operand(Operand *op, char *name, bool required)
 {
-    Value v = {0};
-    D_TEST_EXPR(d_dyn_array_default_init(&v.value_list, DStringView, NULL, NULL, RAW_BUF_OPT_NONE) == D_OK);
-    clp_init_opnd_raw(op, name, NULL, false,
-                      OPND_ACT_LIST, v,
-                      TYPE_STR, required);
+    clp_init_opnd_list(op, name, NULL, required);
 }
 
 static void init_kv_opt(Option *opt, char *lng, char *sht)
 {
-    clp_init_option_raw(opt, lng, sht, NULL, false, OPT_ACT_KV, (Value){0}, TYPE_STR, false, false);
+    clp_init_option_kv(opt, lng, sht, NULL, false, false);
 }
 
 static void init_kv_operand(Operand *op, char *name, bool required)
 {
-    clp_init_opnd_raw(op, name, NULL, false, OPND_ACT_KV, (Value){0}, TYPE_STR, required);
+    clp_init_opnd_kv(op, name, NULL, required);
 }
 
 /* ── fork/pipe helper (used by null-guard and error tests) ──────────────── */
@@ -920,9 +904,7 @@ static void test_usize_option_parses_decimal(void)
     Command root;
     Option jobs;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&jobs, "jobs", "j", NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_USIZE, false, false);
+    clp_init_option(&jobs, "jobs", "j", NULL, TYPE_USIZE, false, false);
     clp_add_command_option(&root, &jobs);
 
     char *argv[] = {"prog", "--jobs", "4", NULL};
@@ -938,9 +920,7 @@ static void test_long_option_parses_negative(void)
     Command root;
     Option level;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&level, "level", "l", NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_LONG, false, false);
+    clp_init_option(&level, "level", "l", NULL, TYPE_LONG, false, false);
     clp_add_command_option(&root, &level);
 
     char *argv[] = {"prog", "--level", "-5", NULL};
@@ -956,9 +936,7 @@ static void test_char_option_parses_single_char(void)
     Command root;
     Option sep;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&sep, "sep", "s", NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_CHAR, false, false);
+    clp_init_option(&sep, "sep", "s", NULL, TYPE_CHAR, false, false);
     clp_add_command_option(&root, &sep);
 
     char *argv[] = {"prog", "--sep", ",", NULL};
@@ -1373,9 +1351,7 @@ static void test_long_opt_eq_value_in_subcommand(void)
     Option depth;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&clone, 1, "clone", NULL);
-    clp_init_option_raw(&depth, "depth", "d", NULL, false,
-                        OPT_ACT_SET, (Value){0},
-                        TYPE_USIZE, false, false);
+    clp_init_option(&depth, "depth", "d", NULL, TYPE_USIZE, false, false);
     clp_add_command_option(&clone, &depth);
     clp_add_command_sub_command(&root, &clone);
 
@@ -1591,8 +1567,7 @@ static void test_global_option_set_at_parent_accessible_after_dispatch(void)
     Option verbose;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_init_option(&verbose, "verbose", "v", NULL, TYPE_BOOL, false, true);
     clp_add_command_option(&root, &verbose);
     clp_add_command_sub_command(&root, &push);
 
@@ -1611,8 +1586,7 @@ static void test_required_global_option_set_at_parent_satisfies_child(void)
     Option token;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&token, "token", "t", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_STR, true, true);
+    clp_init_option(&token, "token", "t", NULL, TYPE_STR, true, true);
     clp_add_command_option(&root, &token);
     clp_add_command_sub_command(&root, &push);
 
@@ -1632,8 +1606,7 @@ static void _err_required_global_option_unset_in_child(void)
     Option token, force;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&token, "token", "t", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_STR, true, true);
+    clp_init_option(&token, "token", "t", NULL, TYPE_STR, true, true);
     init_bool_opt(&force, "force", "f", false);
     clp_add_command_option(&root, &token);
     clp_add_command_option(&push, &force);
@@ -1659,8 +1632,7 @@ static void test_non_global_required_option_not_inherited_to_child(void)
     Option token;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&token, "token", "t", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_init_option(&token, "token", "t", NULL, TYPE_STR, true, false);
     clp_add_command_option(&root, &token);
     clp_add_command_sub_command(&root, &push);
 
@@ -1680,8 +1652,7 @@ static void test_global_option_inherited_through_nested_levels(void)
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&remote, 1, "remote", NULL);
     clp_init_command(&add, 2, "add", NULL);
-    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_init_option(&verbose, "verbose", "v", NULL, TYPE_BOOL, false, true);
     clp_add_command_option(&root, &verbose);
     clp_add_command_sub_command(&root, &remote);
     clp_add_command_sub_command(&remote, &add);
@@ -1701,10 +1672,8 @@ static void test_multiple_global_options_all_inherited(void)
     Option verbose, dry_run;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&verbose, "verbose", "v", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
-    clp_init_option_raw(&dry_run, "dry-run", "n", NULL, false,
-                        OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, true);
+    clp_init_option(&verbose, "verbose", "v", NULL, TYPE_BOOL, false, true);
+    clp_init_option(&dry_run, "dry-run", "n", NULL, TYPE_BOOL, false, true);
     clp_add_command_option(&root, &verbose);
     clp_add_command_option(&root, &dry_run);
     clp_add_command_sub_command(&root, &push);
@@ -1735,9 +1704,9 @@ static void test_five_level_deep_with_many_options_and_operands(void)
     Option trace, region, node_id, proc_pid, task_pri;
     init_bool_opt(&trace, "trace", "t", false);
     init_str_opt(&region, "region", "R", false);
-    clp_init_option_raw(&node_id, "node-id", "N", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_USIZE, false, false);
-    clp_init_option_raw(&proc_pid, "pid", "P", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_LONG, false, false);
-    clp_init_option_raw(&task_pri, "priority", "p", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_CHAR, false, false);
+    clp_init_option(&node_id, "node-id", "N", NULL, TYPE_USIZE, false, false);
+    clp_init_option(&proc_pid, "pid", "P", NULL, TYPE_LONG, false, false);
+    clp_init_option(&task_pri, "priority", "p", NULL, TYPE_CHAR, false, false);
 
     clp_add_command_option(&root, &trace);
     clp_add_command_option(&cluster, &region);
@@ -1767,10 +1736,10 @@ static void test_five_level_deep_with_many_options_and_operands(void)
     init_str_opt(&target, "target", "T", false);
     init_str_opt(&profile, "profile", "e", false);
 
-    clp_init_option_raw(&jobs, "jobs", "j", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_USIZE, false, false);
-    clp_init_option_raw(&retries, "retries", "x", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_USIZE, false, false);
-    clp_init_option_raw(&timeout, "timeout", "m", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_LONG, false, false);
-    clp_init_option_raw(&sep, "separator", "S", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_CHAR, false, false);
+    clp_init_option(&jobs, "jobs", "j", NULL, TYPE_USIZE, false, false);
+    clp_init_option(&retries, "retries", "x", NULL, TYPE_USIZE, false, false);
+    clp_init_option(&timeout, "timeout", "m", NULL, TYPE_LONG, false, false);
+    clp_init_option(&sep, "separator", "S", NULL, TYPE_CHAR, false, false);
     init_count_opt(&debug, "debug", "d");
 
     clp_add_command_option(&run, &verbose);
@@ -2038,7 +2007,7 @@ static void _err_missing_required_opt(void)
     Command root;
     Option output;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&output, "output", "o", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_init_option(&output, "output", "o", NULL, TYPE_STR, true, false);
     clp_add_command_option(&root, &output);
     char *argv[] = {"prog", NULL};
     Command *cmd = NULL;
@@ -2058,7 +2027,7 @@ static void _err_missing_required_operand(void)
     Command root;
     Operand file;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&file, "file", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_init_opnd(&file, "file", NULL, TYPE_STR, true);
     clp_add_command_operand(&root, &file);
     char *argv[] = {"prog", NULL};
     Command *cmd = NULL;
@@ -2078,7 +2047,7 @@ static void _err_too_many_operands(void)
     Command root;
     Operand file;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&file, "file", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, false);
+    clp_init_opnd(&file, "file", NULL, TYPE_STR, false);
     clp_add_command_operand(&root, &file);
     char *argv[] = {"prog", "a.txt", "b.txt", NULL};
     Command *cmd = NULL;
@@ -2097,7 +2066,7 @@ static void _err_invalid_usize_value(void)
     Command root;
     Option jobs;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&jobs, "jobs", "j", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_USIZE, false, false);
+    clp_init_option(&jobs, "jobs", "j", NULL, TYPE_USIZE, false, false);
     clp_add_command_option(&root, &jobs);
     char *argv[] = {"prog", "--jobs", "notanumber", NULL};
     Command *cmd = NULL;
@@ -2118,7 +2087,7 @@ static void _err_invalid_long_value(void)
     Command root;
     Option level;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&level, "level", "l", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_LONG, false, false);
+    clp_init_option(&level, "level", "l", NULL, TYPE_LONG, false, false);
     clp_add_command_option(&root, &level);
     char *argv[] = {"prog", "--level", "abc", NULL};
     Command *cmd = NULL;
@@ -2139,7 +2108,7 @@ static void _err_invalid_char_too_many(void)
     Command root;
     Option sep;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&sep, "sep", "s", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_CHAR, false, false);
+    clp_init_option(&sep, "sep", "s", NULL, TYPE_CHAR, false, false);
     clp_add_command_option(&root, &sep);
     char *argv[] = {"prog", "--sep", "ab", NULL};
     Command *cmd = NULL;
@@ -2159,7 +2128,7 @@ static void _err_invalid_char_empty(void)
     Command root;
     Option sep;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&sep, "sep", "s", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_CHAR, false, false);
+    clp_init_option(&sep, "sep", "s", NULL, TYPE_CHAR, false, false);
     clp_add_command_option(&root, &sep);
     char *argv[] = {"prog", "--sep", "", NULL};
     Command *cmd = NULL;
@@ -2179,7 +2148,7 @@ static void _err_bool_opt_inline_value(void)
     Command root;
     Option verbose;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&verbose, "verbose", "v", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&verbose, "verbose", "v", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &verbose);
     char *argv[] = {"prog", "--verbose=foo", NULL};
     Command *cmd = NULL;
@@ -2199,7 +2168,7 @@ static void _err_count_opt_inline_value(void)
     Command root;
     Option debug;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&debug, "debug", "d", NULL, false, OPT_ACT_COUNT, (Value){0}, TYPE_USIZE, false, false);
+    clp_init_option_count(&debug, "debug", "d", NULL, false);
     clp_add_command_option(&root, &debug);
     char *argv[] = {"prog", "--debug=3", NULL};
     Command *cmd = NULL;
@@ -2219,7 +2188,7 @@ static void _err_str_opt_no_value(void)
     Command root;
     Option output;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&output, "output", "o", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, false, false);
+    clp_init_option(&output, "output", "o", NULL, TYPE_STR, false, false);
     clp_add_command_option(&root, &output);
     char *argv[] = {"prog", "--output", NULL};
     Command *cmd = NULL;
@@ -2239,8 +2208,8 @@ static void _err_duplicate_long_name(void)
     Command root;
     Option a, b;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&a, "verbose", "v", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
-    clp_init_option_raw(&b, "verbose", "w", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&a, "verbose", "v", NULL, TYPE_BOOL, false, false);
+    clp_init_option(&b, "verbose", "w", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &a);
     clp_add_command_option(&root, &b);
 }
@@ -2258,8 +2227,8 @@ static void _err_duplicate_short_name(void)
     Command root;
     Option a, b;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&a, "verbose", "v", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
-    clp_init_option_raw(&b, "vverbose", "v", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&a, "verbose", "v", NULL, TYPE_BOOL, false, false);
+    clp_init_option(&b, "vverbose", "v", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &a);
     clp_add_command_option(&root, &b);
 }
@@ -2277,8 +2246,8 @@ static void _err_required_after_optional_operand(void)
     Command root;
     Operand opt_op, req_op;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&opt_op, "optional", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, false);
-    clp_init_opnd_raw(&req_op, "required", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_init_opnd(&opt_op, "optional", NULL, TYPE_STR, false);
+    clp_init_opnd(&req_op, "required", NULL, TYPE_STR, true);
     clp_add_command_operand(&root, &opt_op);
     clp_add_command_operand(&root, &req_op);
 }
@@ -2371,7 +2340,7 @@ static void _err_parent_opt_used_in_subcommand(void)
     Option force;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&add, 1, "add", NULL);
-    clp_init_option_raw(&force, "force", "f", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&force, "force", "f", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &force);
     clp_add_command_sub_command(&root, &add);
     char *argv[] = {"prog", "add", "--force", NULL};
@@ -2394,7 +2363,7 @@ static void _err_missing_required_opt_in_subcommand(void)
     Option token;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    clp_init_option_raw(&token, "token", "t", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_init_option(&token, "token", "t", NULL, TYPE_STR, true, false);
     clp_add_command_option(&push, &token);
     clp_add_command_sub_command(&root, &push);
     char *argv[] = {"prog", "push", NULL};
@@ -2417,7 +2386,7 @@ static void _err_missing_required_opnd_in_subcommand(void)
     Operand dst;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&cp, 1, "cp", NULL);
-    clp_init_opnd_raw(&dst, "dst", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_init_opnd(&dst, "dst", NULL, TYPE_STR, true);
     clp_add_command_operand(&cp, &dst);
     clp_add_command_sub_command(&root, &cp);
     char *argv[] = {"prog", "cp", NULL};
@@ -2439,8 +2408,8 @@ static void _warn_duplicate_opnd_name(void)
     Command root;
     Operand a, b;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&a, "file", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, false);
-    clp_init_opnd_raw(&b, "file", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, false);
+    clp_init_opnd(&a, "file", NULL, TYPE_STR, false);
+    clp_init_opnd(&b, "file", NULL, TYPE_STR, false);
     clp_add_command_operand(&root, &a);
     clp_add_command_operand(&root, &b);
 }
@@ -2472,7 +2441,7 @@ static void _err_short_opt_no_value(void)
     Command root;
     Option output;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&output, "output", "o", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, false, false);
+    clp_init_option(&output, "output", "o", NULL, TYPE_STR, false, false);
     clp_add_command_option(&root, &output);
     char *argv[] = {"prog", "-o", NULL};
     Command *cmd = NULL;
@@ -2492,7 +2461,7 @@ static void _err_invalid_value_via_short_opt(void)
     Command root;
     Option jobs;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&jobs, "jobs", "j", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_USIZE, false, false);
+    clp_init_option(&jobs, "jobs", "j", NULL, TYPE_USIZE, false, false);
     clp_add_command_option(&root, &jobs);
     char *argv[] = {"prog", "-j", "abc", NULL};
     Command *cmd = NULL;
@@ -2513,7 +2482,7 @@ static void _err_invalid_double_opt_value(void)
     Command root;
     Option rate;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&rate, "rate", "r", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_DOUBLE, false, false);
+    clp_init_option(&rate, "rate", "r", NULL, TYPE_DOUBLE, false, false);
     clp_add_command_option(&root, &rate);
     char *argv[] = {"prog", "--rate", "notadouble", NULL};
     Command *cmd = NULL;
@@ -2534,7 +2503,7 @@ static void _err_invalid_usize_operand(void)
     Command root;
     Operand count;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&count, "count", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_USIZE, false);
+    clp_init_opnd(&count, "count", NULL, TYPE_USIZE, false);
     clp_add_command_operand(&root, &count);
     char *argv[] = {"prog", "notanumber", NULL};
     Command *cmd = NULL;
@@ -2555,7 +2524,7 @@ static void _err_invalid_long_operand(void)
     Command root;
     Operand offset;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&offset, "offset", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_LONG, false);
+    clp_init_opnd(&offset, "offset", NULL, TYPE_LONG, false);
     clp_add_command_operand(&root, &offset);
     char *argv[] = {"prog", "xyz", NULL};
     Command *cmd = NULL;
@@ -2576,7 +2545,7 @@ static void _err_invalid_char_operand(void)
     Command root;
     Operand delim;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&delim, "delim", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_CHAR, false);
+    clp_init_opnd(&delim, "delim", NULL, TYPE_CHAR, false);
     clp_add_command_operand(&root, &delim);
     char *argv[] = {"prog", "ab", NULL};
     Command *cmd = NULL;
@@ -2596,7 +2565,7 @@ static void _err_invalid_double_operand(void)
     Command root;
     Operand scale;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&scale, "scale", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_DOUBLE, false);
+    clp_init_opnd(&scale, "scale", NULL, TYPE_DOUBLE, false);
     clp_add_command_operand(&root, &scale);
     char *argv[] = {"prog", "notdouble", NULL};
     Command *cmd = NULL;
@@ -2617,8 +2586,8 @@ static void _err_multiple_missing_required_opts(void)
     Command root;
     Option output, config;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&output, "output", "o", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
-    clp_init_option_raw(&config, "config", "c", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_init_option(&output, "output", "o", NULL, TYPE_STR, true, false);
+    clp_init_option(&config, "config", "c", NULL, TYPE_STR, true, false);
     clp_add_command_option(&root, &output);
     clp_add_command_option(&root, &config);
     char *argv[] = {"prog", NULL};
@@ -2640,8 +2609,8 @@ static void _err_multiple_missing_required_operands(void)
     Command root;
     Operand src, dst;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&src, "src", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
-    clp_init_opnd_raw(&dst, "dst", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_init_opnd(&src, "src", NULL, TYPE_STR, true);
+    clp_init_opnd(&dst, "dst", NULL, TYPE_STR, true);
     clp_add_command_operand(&root, &src);
     clp_add_command_operand(&root, &dst);
     char *argv[] = {"prog", NULL};
@@ -2663,7 +2632,7 @@ static void _err_unknown_short_in_combined(void)
     Command root;
     Option verbose;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&verbose, "verbose", "v", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&verbose, "verbose", "v", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &verbose);
     char *argv[] = {"prog", "-vz", NULL};
     Command *cmd = NULL;
@@ -2685,7 +2654,7 @@ static void _usage_missing_required_opt(void)
     Command root;
     Option output;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_option_raw(&output, "output", "o", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_init_option(&output, "output", "o", NULL, TYPE_STR, true, false);
     clp_add_command_option(&root, &output);
     char *argv[] = {"prog", NULL};
     Command *cmd = NULL;
@@ -2713,7 +2682,7 @@ static void _usage_missing_required_operand(void)
     Command root;
     Operand file;
     clp_init_command(&root, 0, "prog", NULL);
-    clp_init_opnd_raw(&file, "file", NULL, false, OPND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_init_opnd(&file, "file", NULL, TYPE_STR, true);
     clp_add_command_operand(&root, &file);
     char *argv[] = {"prog", NULL};
     Command *cmd = NULL;
@@ -2881,7 +2850,7 @@ static void test_short_help_not_triggered_when_user_defined_h(void)
     Command root;
     Option h;
     clp_init_command(&root, 0, "prog", "test");
-    clp_init_option_raw(&h, NULL, "h", NULL, false, OPT_ACT_SET, (Value){0}, TYPE_BOOL, false, false);
+    clp_init_option(&h, NULL, "h", NULL, TYPE_BOOL, false, false);
     clp_add_command_option(&root, &h);
     char *argv[] = {"prog", "-h", NULL};
     Command *cmd = NULL;
