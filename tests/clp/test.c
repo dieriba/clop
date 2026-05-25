@@ -513,7 +513,7 @@ static void test_short_opt_inline_value(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "file.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -530,7 +530,7 @@ static void test_short_opt_next_argv_value(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "file.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -547,7 +547,7 @@ static void test_long_opt_inline_eq_value(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "file.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -564,7 +564,7 @@ static void test_long_opt_next_argv_value(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "file.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -587,7 +587,7 @@ static void test_combined_bools_then_inline_value_opt(void)
     D_TEST_EXPR(fa.value_set == true);
     D_TEST_EXPR(fb.value_set == true);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "file.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -710,7 +710,7 @@ static void test_single_opnd_is_set(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(file.value_set == true);
-    D_TEST_STR_EQ(file.value.value_str, "input.txt");
+    D_TEST_STR_EQ(file.value.value_d_string_view.data, "input.txt");
     clp_cleanup(&root);
 }
 
@@ -768,8 +768,8 @@ static void test_multiple_operands(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(src.value_set == true);
     D_TEST_EXPR(dst.value_set == true);
-    D_TEST_STR_EQ(src.value.value_str, "a.txt");
-    D_TEST_STR_EQ(dst.value.value_str, "b.txt");
+    D_TEST_STR_EQ(src.value.value_d_string_view.data, "a.txt");
+    D_TEST_STR_EQ(dst.value.value_d_string_view.data, "b.txt");
     clp_cleanup(&root);
 }
 
@@ -790,7 +790,7 @@ static void test_double_hyphen_terminates_option_parsing(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(verbose.value_set == false);
     D_TEST_EXPR(file.value_set == true);
-    D_TEST_STR_EQ(file.value.value_str, "--verbose");
+    D_TEST_STR_EQ(file.value.value_d_string_view.data, "--verbose");
     clp_cleanup(&root);
 }
 
@@ -810,7 +810,7 @@ static void test_double_hyphen_with_options_before(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(verbose.value_set == true);
     D_TEST_EXPR(file.value_set == true);
-    D_TEST_STR_EQ(file.value.value_str, "file.txt");
+    D_TEST_STR_EQ(file.value.value_d_string_view.data, "file.txt");
     clp_cleanup(&root);
 }
 
@@ -962,7 +962,7 @@ static void test_long_opt_empty_inline_value(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "");
     clp_cleanup(&root);
 }
 
@@ -1168,8 +1168,8 @@ static void test_options_at_each_of_three_levels(void)
     D_TEST_EXPR(url.value_set == true);
     D_TEST_EXPR(force.value_set == true);
     D_TEST_EXPR(name.value_set == true);
-    D_TEST_STR_EQ(url.value.value_str, "git@x.com");
-    D_TEST_STR_EQ(name.value.value_str, "origin");
+    D_TEST_STR_EQ(url.value.value_d_string_view.data, "git@x.com");
+    D_TEST_STR_EQ(name.value.value_d_string_view.data, "origin");
     clp_cleanup(&root);
 }
 
@@ -1217,7 +1217,7 @@ static void test_subcommand_with_options_and_operands(void)
     D_TEST_EXPR(cmd == &commit);
     D_TEST_EXPR(amend.value_set == true);
     D_TEST_EXPR(msg.value_set == true);
-    D_TEST_STR_EQ(msg.value.value_str, "my message");
+    D_TEST_STR_EQ(msg.value.value_d_string_view.data, "my message");
     clp_cleanup(&root);
 }
 
@@ -1279,7 +1279,7 @@ static void test_double_hyphen_in_subcommand_context(void)
     D_TEST_EXPR(cmd == &add);
     D_TEST_EXPR(force.value_set == false);
     D_TEST_EXPR(file.value_set == true);
-    D_TEST_STR_EQ(file.value.value_str, "--force");
+    D_TEST_STR_EQ(file.value.value_d_string_view.data, "--force");
     clp_cleanup(&root);
 }
 
@@ -1383,8 +1383,8 @@ static void test_subcommand_with_multiple_operands(void)
     D_TEST_EXPR(cmd == &cp);
     D_TEST_EXPR(src.value_set == true);
     D_TEST_EXPR(dst.value_set == true);
-    D_TEST_STR_EQ(src.value.value_str, "a.txt");
-    D_TEST_STR_EQ(dst.value.value_str, "b.txt");
+    D_TEST_STR_EQ(src.value.value_d_string_view.data, "a.txt");
+    D_TEST_STR_EQ(dst.value.value_d_string_view.data, "b.txt");
     clp_cleanup(&root);
 }
 
@@ -1444,8 +1444,8 @@ static void test_subcommand_short_inline_value_and_operand(void)
     D_TEST_EXPR(cmd == &push);
     D_TEST_EXPR(remote.value_set == true);
     D_TEST_EXPR(branch.value_set == true);
-    D_TEST_STR_EQ(remote.value.value_str, "origin");
-    D_TEST_STR_EQ(branch.value.value_str, "main");
+    D_TEST_STR_EQ(remote.value.value_d_string_view.data, "origin");
+    D_TEST_STR_EQ(branch.value.value_d_string_view.data, "main");
     clp_cleanup(&root);
 }
 
@@ -1595,7 +1595,7 @@ static void test_required_global_option_set_at_parent_satisfies_child(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(cmd == &push);
     D_TEST_EXPR(token.value_set == true);
-    D_TEST_STR_EQ(token.value.value_str, "abc");
+    D_TEST_STR_EQ(token.value.value_d_string_view.data, "abc");
     clp_cleanup(&root);
 }
 
@@ -1875,7 +1875,7 @@ static void test_five_level_deep_with_many_options_and_operands(void)
     /* intermediate level options */
     D_TEST_EXPR(trace.value_set == true && trace.value.value_bool == true);
     D_TEST_EXPR(region.value_set == true);
-    D_TEST_STR_EQ(region.value.value_str, "us-east");
+    D_TEST_STR_EQ(region.value.value_d_string_view.data, "us-east");
     D_TEST_EXPR(node_id.value_set == true && node_id.value.value_usize == 42);
     D_TEST_EXPR(proc_pid.value_set == true && proc_pid.value.value_long == -7);
     D_TEST_EXPR(task_pri.value_set == true && task_pri.value.value_char == 'H');
@@ -1894,15 +1894,15 @@ static void test_five_level_deep_with_many_options_and_operands(void)
 
     /* 5 strs */
     D_TEST_EXPR(output.value_set == true);
-    D_TEST_STR_EQ(output.value.value_str, "result.txt");
+    D_TEST_STR_EQ(output.value.value_d_string_view.data, "result.txt");
     D_TEST_EXPR(config.value_set == true);
-    D_TEST_STR_EQ(config.value.value_str, "config.yml");
+    D_TEST_STR_EQ(config.value.value_d_string_view.data, "config.yml");
     D_TEST_EXPR(format.value_set == true);
-    D_TEST_STR_EQ(format.value.value_str, "json");
+    D_TEST_STR_EQ(format.value.value_d_string_view.data, "json");
     D_TEST_EXPR(target.value_set == true);
-    D_TEST_STR_EQ(target.value.value_str, "prod");
+    D_TEST_STR_EQ(target.value.value_d_string_view.data, "prod");
     D_TEST_EXPR(profile.value_set == true);
-    D_TEST_STR_EQ(profile.value.value_str, "myprofile");
+    D_TEST_STR_EQ(profile.value.value_d_string_view.data, "myprofile");
 
     /* 2 usize + 1 long + 1 char + 1 count */
     D_TEST_EXPR(jobs.value_set == true && jobs.value.value_usize == 8);
@@ -1913,43 +1913,43 @@ static void test_five_level_deep_with_many_options_and_operands(void)
 
     /* 19 SET operands */
     D_TEST_EXPR(op01.value_set == true);
-    D_TEST_STR_EQ(op01.value.value_str, "val01");
+    D_TEST_STR_EQ(op01.value.value_d_string_view.data, "val01");
     D_TEST_EXPR(op02.value_set == true);
-    D_TEST_STR_EQ(op02.value.value_str, "val02");
+    D_TEST_STR_EQ(op02.value.value_d_string_view.data, "val02");
     D_TEST_EXPR(op03.value_set == true);
-    D_TEST_STR_EQ(op03.value.value_str, "val03");
+    D_TEST_STR_EQ(op03.value.value_d_string_view.data, "val03");
     D_TEST_EXPR(op04.value_set == true);
-    D_TEST_STR_EQ(op04.value.value_str, "val04");
+    D_TEST_STR_EQ(op04.value.value_d_string_view.data, "val04");
     D_TEST_EXPR(op05.value_set == true);
-    D_TEST_STR_EQ(op05.value.value_str, "val05");
+    D_TEST_STR_EQ(op05.value.value_d_string_view.data, "val05");
     D_TEST_EXPR(op06.value_set == true);
-    D_TEST_STR_EQ(op06.value.value_str, "val06");
+    D_TEST_STR_EQ(op06.value.value_d_string_view.data, "val06");
     D_TEST_EXPR(op07.value_set == true);
-    D_TEST_STR_EQ(op07.value.value_str, "val07");
+    D_TEST_STR_EQ(op07.value.value_d_string_view.data, "val07");
     D_TEST_EXPR(op08.value_set == true);
-    D_TEST_STR_EQ(op08.value.value_str, "val08");
+    D_TEST_STR_EQ(op08.value.value_d_string_view.data, "val08");
     D_TEST_EXPR(op09.value_set == true);
-    D_TEST_STR_EQ(op09.value.value_str, "val09");
+    D_TEST_STR_EQ(op09.value.value_d_string_view.data, "val09");
     D_TEST_EXPR(op10.value_set == true);
-    D_TEST_STR_EQ(op10.value.value_str, "val10");
+    D_TEST_STR_EQ(op10.value.value_d_string_view.data, "val10");
     D_TEST_EXPR(op11.value_set == true);
-    D_TEST_STR_EQ(op11.value.value_str, "val11");
+    D_TEST_STR_EQ(op11.value.value_d_string_view.data, "val11");
     D_TEST_EXPR(op12.value_set == true);
-    D_TEST_STR_EQ(op12.value.value_str, "val12");
+    D_TEST_STR_EQ(op12.value.value_d_string_view.data, "val12");
     D_TEST_EXPR(op13.value_set == true);
-    D_TEST_STR_EQ(op13.value.value_str, "val13");
+    D_TEST_STR_EQ(op13.value.value_d_string_view.data, "val13");
     D_TEST_EXPR(op14.value_set == true);
-    D_TEST_STR_EQ(op14.value.value_str, "val14");
+    D_TEST_STR_EQ(op14.value.value_d_string_view.data, "val14");
     D_TEST_EXPR(op15.value_set == true);
-    D_TEST_STR_EQ(op15.value.value_str, "val15");
+    D_TEST_STR_EQ(op15.value.value_d_string_view.data, "val15");
     D_TEST_EXPR(op16.value_set == true);
-    D_TEST_STR_EQ(op16.value.value_str, "val16");
+    D_TEST_STR_EQ(op16.value.value_d_string_view.data, "val16");
     D_TEST_EXPR(op17.value_set == true);
-    D_TEST_STR_EQ(op17.value.value_str, "val17");
+    D_TEST_STR_EQ(op17.value.value_d_string_view.data, "val17");
     D_TEST_EXPR(op18.value_set == true);
-    D_TEST_STR_EQ(op18.value.value_str, "val18");
+    D_TEST_STR_EQ(op18.value.value_d_string_view.data, "val18");
     D_TEST_EXPR(op19.value_set == true);
-    D_TEST_STR_EQ(op19.value.value_str, "val19");
+    D_TEST_STR_EQ(op19.value.value_d_string_view.data, "val19");
 
     /* LIST operand: 3 entries */
     D_TEST_EXPR(files.value_set == true);
