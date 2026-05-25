@@ -10,4 +10,5 @@ char *s_to_double(const char *s, Value *value);
 char *s_to_long(const char *s, Value *value);
 char *s_to_usize(const char *s, Value *value);
 ConversionFn type_to_conversion_fn(Type type);
+const char *type_to_str(Type type);
 #endif

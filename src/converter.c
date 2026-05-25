@@ -71,6 +71,28 @@ char *s_to_bool(const char *s, Value *value)
     return NULL;
 }
 
+const char *type_to_str(Type type)
+{
+    switch (type)
+    {
+    case TYPE_LONG:
+        return "long";
+    case TYPE_BOOL:
+        return "bool";
+    case TYPE_USIZE:
+        return "usize";
+    case TYPE_STR:
+        return "str";
+    case TYPE_CHAR:
+        return "char";
+    case TYPE_DOUBLE:
+        return "double";
+    default:
+        break;
+    }
+    return "UNKNOWN TYPE";
+}
+
 ConversionFn type_to_conversion_fn(Type type)
 {
     switch (type)
