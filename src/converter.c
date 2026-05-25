@@ -56,7 +56,7 @@ char *s_to_char(const char *s, Value *value)
 
 char *s_to_string(const char *s, Value *value)
 {
-    value->value_str = s;
+    value->value_d_string_view = d_string_view_from_c_string(s);
     return NULL;
 }
 

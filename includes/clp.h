@@ -20,7 +20,7 @@
     clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_usize = (def)}, TYPE_USIZE, req, glob)
 
 #define clp_init_option_default_str(opt, ln, sn, desc, def, req, glob) \
-    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_str = (def)}, TYPE_STR, req, glob)
+    clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_d_string_view = d_string_view_from_c_string(def)}, TYPE_STR, req, glob)
 
 #define clp_init_option_default_char(opt, ln, sn, desc, def, req, glob) \
     clp_init_option_raw(opt, ln, sn, desc, true, OPT_ACT_SET, (Value){.value_char = (def)}, TYPE_CHAR, req, glob)
@@ -50,7 +50,7 @@
     clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_usize = (def)}, TYPE_USIZE, req)
 
 #define clp_init_opnd_default_str(op, name, desc, def, req) \
-    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_str = (def)}, TYPE_STR, req)
+    clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_d_string_view = d_string_view_from_c_string(def)}, TYPE_STR, req)
 
 #define clp_init_opnd_default_char(op, name, desc, def, req) \
     clp_init_opnd_raw(op, name, desc, true, OPND_ACT_SET, (Value){.value_char = (def)}, TYPE_CHAR, req)
@@ -94,9 +94,9 @@ typedef union Value
     DUnorderedMap value_kv;
     DDynArray value_list;
     usize value_usize;
+    DStringView value_d_string_view;
     double value_double;
     long value_long;
-    const char *value_str;
     bool value_bool;
     char value_char;
 } Value;
