@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "clp.h"
+#include "d_unordered_map.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
 #include "converter.h"
@@ -124,6 +125,11 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
         if (d_dyn_array_init(&opt->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
             clp_eprint_exit("out of memory\n");
     }
+    else if (has_default_value == false && action == OPT_ACT_KV)
+    {
+        if (d_unordered_map_init_not_owned_d_string_view_key(&opt->value.value_kv, sizeof(DStringView), 1, NULL))
+            clp_eprint_exit("out of memory\n");
+    }
     else
         opt->value = value;
 
@@ -146,6 +152,11 @@ void clp_init_OPND_raw(Operand *operand, char *name, char *description, bool has
     if (has_default_value == false && action == OPND_ACT_LIST)
     {
         if (d_dyn_array_init(&operand->value.value_list, sizeof(DStringView), 1, NULL, NULL, RAW_BUF_OPT_NONE) != D_OK)
+            clp_eprint_exit("out of memory\n");
+    }
+    else if (has_default_value == false && action == OPND_ACT_KV)
+    {
+        if (d_unordered_map_init_not_owned_d_string_view_key(&operand->value.value_kv, sizeof(DStringView), 1, NULL))
             clp_eprint_exit("out of memory\n");
     }
     else
@@ -578,8 +589,43 @@ static void exit_print_usage_if_misused_command(Command *command)
     exit(EXIT_FAILURE);
 }
 
+static void add_new_kv_pairs(Command *root, DUnorderedMap *kv, const char *kv_pairs, const char *prefix, const char *arg_name, int arg_len)
+{
+    DStringView list = d_string_view_from_c_string(kv_pairs);
+    usize i = 0, j = 0;
+    while (1)
+    {
+        j = d_string_view_find_first_matching_char_from_index(list, ',', i);
+        DStringView sub = d_string_view_subview(list, i, j - i);
+        usize eq_pos = d_string_view_find_first_matching_char_from_index(sub, '=', 0);
+
+        if (eq_pos == MAX_SIZE_T_VALUE)
+            clp_eprint_exit("command %s: '%s%.*s': '%.*s' is not a valid key=value pair (missing '=')\n",
+                            root->name.data, prefix, arg_len, arg_name, (int)sub.size, sub.data);
+        if (eq_pos == 0)
+            clp_eprint_exit("command %s: '%s%.*s': '%.*s' has an empty key (expected 'key=value')\n",
+                            root->name.data, prefix, arg_len, arg_name, (int)sub.size, sub.data);
+
+        DStringView key = d_string_view_subview(sub, 0, eq_pos);
+
+        if (eq_pos + 1 >= sub.size)
+            clp_eprint_exit("command %s: '%s%.*s': key '%.*s' has an empty value (expected 'key=value')\n",
+                            root->name.data, prefix, arg_len, arg_name, (int)key.size, key.data);
+
+        DStringView value_str = d_string_view_subview(sub, eq_pos + 1, MAX_SIZE_T_VALUE);
+        DResult result;
+        if ((result = d_unordered_map_insert(kv, &key, &value_str)) != D_OK)
+            clp_eprint_exit("command %s: '%s%.*s': failed to store key '%.*s': %s\n",
+                            root->name.data, prefix, arg_len, arg_name, (int)key.size, key.data, d_error_print_result_as_str(result));
+        if (j == MAX_SIZE_T_VALUE)
+            break;
+        i = j + 1;
+    }
+}
+
 static void set_opt_value(Command *root, Option *opt, const char *operand, char *prefix, const char *opt_name, usize len_name)
 {
+    ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
 
     switch (opt->action)
     {
@@ -588,7 +634,6 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
         {
             if (operand == NULL)
                 clp_eprint_exit("command %s: '%s%.*s' option require an argument", root->name.data, prefix, (int)len_name, opt_name);
-            ConversionFn conversion_fn = type_to_conversion_fn(opt->type);
             char *err_msg = conversion_fn(operand, &opt->value);
             if (err_msg)
                 clp_eprint_exit("command %s: invalid value '%s' for '%s%.*s': %s", root->name.data, operand, prefix, (int)len_name, opt_name, err_msg);
@@ -613,6 +658,9 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
                 break;
             i = j + 1;
         }
+        break;
+    case OPT_ACT_KV:
+        add_new_kv_pairs(root, &opt->value.value_kv, operand, prefix, opt_name, (int)len_name);
         break;
     default:
         break;
@@ -653,6 +701,10 @@ static char **set_OPND_value(Command *root, usize cursor, char *raw_operand, cha
             if (raw_operand == NULL || (!consume_all && STR_STARTS_WITH_HYPEN(raw_operand)))
                 break;
         }
+        break;
+    case OPND_ACT_KV:
+        add_new_kv_pairs(root, &operand->value.value_kv, raw_operand, "", operand->name.data, (int)operand->name.size);
+        argv++;
         break;
     default:
         break;
@@ -811,7 +863,7 @@ void free_command(void *command)
     for (usize i = 0; i < opts->array.size; i++)
     {
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
-        if (opt->type == TYPE_KV)
+        if (opt->action == OPT_ACT_KV)
             d_unordered_map_destroy(&opt->value.value_kv);
         else if (opt->action == OPT_ACT_LIST)
             d_dyn_array_destroy(&opt->value.value_list);
@@ -823,7 +875,7 @@ void free_command(void *command)
     for (usize i = 0; i < operands->array.size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
-        if (operand->type == TYPE_KV)
+        if (operand->action == OPND_ACT_KV)
             d_unordered_map_destroy(&operand->value.value_kv);
         else if (operand->action == OPND_ACT_LIST)
             d_dyn_array_destroy(&operand->value.value_list);

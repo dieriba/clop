@@ -36,20 +36,21 @@ typedef enum Type
     TYPE_STR,
     TYPE_CHAR,
     TYPE_DOUBLE,
-    TYPE_KV
 } Type;
 
 typedef enum OptAction
 {
     OPT_ACT_COUNT,
     OPT_ACT_LIST,
-    OPT_ACT_SET
+    OPT_ACT_SET,
+    OPT_ACT_KV
 } OptAction;
 
 typedef enum OpndAction
 {
     OPND_ACT_LIST,
-    OPND_ACT_SET
+    OPND_ACT_SET,
+    OPND_ACT_KV
 } OpndAction;
 
 typedef union Value
