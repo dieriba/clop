@@ -46,7 +46,7 @@ Named flags prefixed with `-` (short) or `--` (long). An option may have a short
 | Short + value (next arg) | `-o file.txt` |
 | Long + value (inline) | `--output=file.txt` |
 | Long + value (next arg) | `--output file.txt` |
-| Combined short flags | `-abc` (all must be bool/count) |
+| Combined short | `-abc`, `-abVALUE` — each char processed in order; bool/count options continue to the next char; a value-taking option consumes the rest of the token as its inline value |
 | Repeated count | `-vvv` or `-v -v -v` |
 
 ### Operands

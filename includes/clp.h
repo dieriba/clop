@@ -10,7 +10,11 @@
  * Option   — a named flag or key/value pair prefixed with - or --.
  *            Short form: -v, -oFILE, -o FILE
  *            Long form:  --verbose, --output=FILE, --output FILE
- *            Combined short bools/counts: -vvv, -abc
+ *            Combined short: -vvv, -abcVALUE
+ *              Each character is processed in order.  Bool/count options
+ *              consume their character and continue.  The first value-taking
+ *              option consumes the rest of the token as its inline value
+ *              (or the next argv token if it is the last character).
  *
  * Operand  — a positional argument (no leading -).
  *            Positional order matches registration order.
