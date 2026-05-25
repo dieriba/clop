@@ -54,6 +54,16 @@ static void init_list_operand(Operand *op, char *name, bool required)
                       TYPE_STR, required);
 }
 
+static void init_kv_opt(Option *opt, char *lng, char *sht)
+{
+    clp_init_option_raw(opt, lng, sht, NULL, false, OPT_ACT_KV, (Value){0}, TYPE_STR, false, false);
+}
+
+static void init_kv_operand(Operand *op, char *name, bool required)
+{
+    clp_init_OPND_raw(op, name, NULL, false, OPND_ACT_KV, (Value){0}, TYPE_STR, required);
+}
+
 /* ── fork/pipe helper (used by null-guard and error tests) ──────────────── */
 
 typedef struct
@@ -2962,6 +2972,187 @@ static void test_help_on_subcommand_shows_subcommand_info(void)
     D_TEST_NOT_NULL(strstr(r.out, "--force"));
 }
 
+/* ── key=value option tests ─────────────────────────────────────────────── */
+
+static void test_kv_option_single_pair(void)
+{
+    Command root;
+    Option env;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_opt(&env, "env", "e");
+    clp_add_command_option(&root, &env);
+
+    char *argv[] = {"prog", "--env", "HOST=localhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+
+    D_TEST_EXPR(env.value_set == true);
+    DStringView key = D_STRING_VIEW_FROM_LITERAL("HOST");
+    DStringView *val = d_unordered_map_get(&env.value.value_kv, &key);
+    D_TEST_NOT_NULL(val);
+    D_TEST_EXPR(d_string_view_compare_against_c_string(*val, "localhost"));
+    clp_cleanup(&root);
+}
+
+static void test_kv_option_multiple_pairs(void)
+{
+    Command root;
+    Option env;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_opt(&env, "env", "e");
+    clp_add_command_option(&root, &env);
+
+    char *argv[] = {"prog", "--env", "HOST=localhost,PORT=8080", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+
+    D_TEST_EXPR(env.value_set == true);
+    DStringView k1 = D_STRING_VIEW_FROM_LITERAL("HOST");
+    DStringView k2 = D_STRING_VIEW_FROM_LITERAL("PORT");
+    DStringView *v1 = d_unordered_map_get(&env.value.value_kv, &k1);
+    DStringView *v2 = d_unordered_map_get(&env.value.value_kv, &k2);
+    D_TEST_NOT_NULL(v1);
+    D_TEST_NOT_NULL(v2);
+    D_TEST_EXPR(d_string_view_compare_against_c_string(*v1, "localhost"));
+    D_TEST_EXPR(d_string_view_compare_against_c_string(*v2, "8080"));
+    clp_cleanup(&root);
+}
+
+static void test_kv_operand_single_pair(void)
+{
+    Command root;
+    Operand binding;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_operand(&binding, "binding", true);
+    clp_add_command_operand(&root, &binding);
+
+    char *argv[] = {"prog", "HOST=localhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+
+    D_TEST_EXPR(binding.value_set == true);
+    DStringView key = D_STRING_VIEW_FROM_LITERAL("HOST");
+    DStringView *val = d_unordered_map_get(&binding.value.value_kv, &key);
+    D_TEST_NOT_NULL(val);
+    D_TEST_EXPR(d_string_view_compare_against_c_string(*val, "localhost"));
+    clp_cleanup(&root);
+}
+
+static void _err_kv_opt_missing_eq(void)
+{
+    Command root;
+    Option env;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_opt(&env, "env", "e");
+    clp_add_command_option(&root, &env);
+    char *argv[] = {"prog", "--env", "HOSTlocalhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opt_missing_eq_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opt_missing_eq);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "missing '='"));
+    D_TEST_NOT_NULL(strstr(r.err, "HOSTlocalhost"));
+    D_TEST_NOT_NULL(strstr(r.err, "--env"));
+}
+
+static void _err_kv_opt_empty_key(void)
+{
+    Command root;
+    Option env;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_opt(&env, "env", "e");
+    clp_add_command_option(&root, &env);
+    char *argv[] = {"prog", "--env", "=localhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opt_empty_key_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opt_empty_key);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "empty key"));
+    D_TEST_NOT_NULL(strstr(r.err, "--env"));
+}
+
+static void _err_kv_opt_empty_value(void)
+{
+    Command root;
+    Option env;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_opt(&env, "env", "e");
+    clp_add_command_option(&root, &env);
+    char *argv[] = {"prog", "--env", "HOST=", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opt_empty_value_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opt_empty_value);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "empty value"));
+    D_TEST_NOT_NULL(strstr(r.err, "HOST"));
+    D_TEST_NOT_NULL(strstr(r.err, "--env"));
+}
+
+static void _err_kv_opnd_missing_eq(void)
+{
+    Command root;
+    Operand binding;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_operand(&binding, "binding", true);
+    clp_add_command_operand(&root, &binding);
+    char *argv[] = {"prog", "HOSTlocalhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opnd_missing_eq_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opnd_missing_eq);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "missing '='"));
+    D_TEST_NOT_NULL(strstr(r.err, "HOSTlocalhost"));
+}
+
+static void _err_kv_opnd_empty_key(void)
+{
+    Command root;
+    Operand binding;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_operand(&binding, "binding", true);
+    clp_add_command_operand(&root, &binding);
+    char *argv[] = {"prog", "=localhost", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opnd_empty_key_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opnd_empty_key);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "empty key"));
+}
+
+static void _err_kv_opnd_empty_value(void)
+{
+    Command root;
+    Operand binding;
+    clp_init_command(&root, 0, "prog", NULL);
+    init_kv_operand(&binding, "binding", true);
+    clp_add_command_operand(&root, &binding);
+    char *argv[] = {"prog", "HOST=", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_kv_opnd_empty_value_exits(void)
+{
+    ChildResult r = run_child(_err_kv_opnd_empty_value);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "empty value"));
+    D_TEST_NOT_NULL(strstr(r.err, "HOST"));
+}
+
 /* ── main ───────────────────────────────────────────────────────────────── */
 
 int main(void)
@@ -3108,6 +3299,16 @@ int main(void)
         D_TEST_GENERATE_TEST(test_invalid_double_OPND_value_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_options_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_operands_exits),
+        /* key=value option and operand */
+        D_TEST_GENERATE_TEST(test_kv_option_single_pair),
+        D_TEST_GENERATE_TEST(test_kv_option_multiple_pairs),
+        D_TEST_GENERATE_TEST(test_kv_operand_single_pair),
+        D_TEST_GENERATE_TEST(test_kv_opt_missing_eq_exits),
+        D_TEST_GENERATE_TEST(test_kv_opt_empty_key_exits),
+        D_TEST_GENERATE_TEST(test_kv_opt_empty_value_exits),
+        D_TEST_GENERATE_TEST(test_kv_opnd_missing_eq_exits),
+        D_TEST_GENERATE_TEST(test_kv_opnd_empty_key_exits),
+        D_TEST_GENERATE_TEST(test_kv_opnd_empty_value_exits),
         /* print_usage */
         D_TEST_GENERATE_TEST(test_usage_line_in_stderr_on_missing_required_option),
         D_TEST_GENERATE_TEST(test_for_more_info_hint_on_missing_required_option),
