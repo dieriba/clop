@@ -82,6 +82,9 @@ void clp_add_command_sub_command(Command *command, Command *sub_command)
 {
     if (command == NULL || sub_command == NULL)
         clp_invalid_arg_exit("null argument to clp_add_command_sub_command\n");
+    if (d_dyn_array_get_size_safe(&(command->operands)) > 0)
+        clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
+
     sub_command->parent_command = command;
     if (d_dyn_array_push_back_ptr(&command->sub_commands, sub_command) != D_OK)
         clp_eprint_exit("out of memory\n");
@@ -168,6 +171,9 @@ void clp_add_command_operand(Command *command, Operand *command_operand)
 {
     if (command == NULL || command_operand == NULL)
         clp_invalid_arg_exit("null argument to clp_add_command_operand\n");
+    if (d_dyn_array_get_size_safe(&(command->sub_commands)) > 0)
+        clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
+
     DDynArray *ops = &command->operands;
     usize size = d_dyn_array_get_size_safe(ops);
     Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_deref_addr_at_safe(ops, size - 1);
