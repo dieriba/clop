@@ -720,7 +720,6 @@ static void parse(Command *root, char **argv, Command **command)
     DDynArray *sub_commands = &root->sub_commands;
     usize sub_commands_size = d_dyn_array_get_size_safe(sub_commands);
     usize cmd_parsed_operand = 0;
-    bool operand_mode = false;
 
     if (*argv == NULL)
     {
@@ -736,22 +735,28 @@ static void parse(Command *root, char **argv, Command **command)
             continue;
         }
 
-        if (operand_mode == false)
+        for (usize i = 0; i < sub_commands_size; i++)
         {
-            for (usize i = 0; i < sub_commands_size; i++)
+            Command *sub_cmd = d_dyn_array_get_elem_deref_addr_at_safe(sub_commands, i);
+            if (d_string_view_compare_against_c_string(sub_cmd->name, s))
             {
-                Command *sub_cmd = d_dyn_array_get_elem_deref_addr_at_safe(sub_commands, i);
-                if (d_string_view_compare_against_c_string(sub_cmd->name, s))
-                {
-                    *command = sub_cmd;
-                    parse(sub_cmd, argv, command);
-                    return;
-                }
+                *command = sub_cmd;
+                parse(sub_cmd, argv, command);
+                return;
             }
         }
 
-        if (!operand_mode)
-            operand_mode = true;
+        goto PARSE_OPERAND;
+    }
+
+    while ((s = *argv) != NULL)
+    {
+        if (STR_STARTS_WITH_HYPEN(s))
+        {
+            argv = interpret_hyphen(root, &s[1], argv, &cmd_parsed_operand);
+            continue;
+        }
+    PARSE_OPERAND:
         argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
     }
 
