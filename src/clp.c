@@ -436,7 +436,7 @@ static void print_usage_line(FILE *stream, Command *command)
         for (size_t i = 0; i < d_dyn_array_get_size_safe(&(command->operands)); i++)
         {
             Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
-            fprintf(stream, "<%s>", operand->name.data);
+                        fprintf(stream, "<%s>", operand->name.data);
             if (operand->action == OPERAND_ACT_LIST)
                 fprintf(stream, "...");
             fprintf(stream, " ");
@@ -446,7 +446,7 @@ static void print_usage_line(FILE *stream, Command *command)
     fprintf(stream, "\n\n");
 }
 
-static bool print_required_opts_if_missing(Command *root)
+static bool print_command_required_opts_if_missing(Command *root)
 {
     DDynArray *opts = &root->options;
     usize size = d_dyn_array_get_size_safe(opts);
@@ -467,11 +467,10 @@ static bool print_required_opts_if_missing(Command *root)
                 clp_eprint("-%c\n", opt->short_name);
         }
     }
-    fprintf(stderr, "\n");
     return required_opts_not_set;
 }
 
-static bool print_required_operands_if_missing(Command *root)
+static bool print_command_required_operands_if_missing(Command *root)
 {
     DDynArray *operands = &root->operands;
     usize size = d_dyn_array_get_size_safe(operands);
@@ -489,7 +488,6 @@ static bool print_required_operands_if_missing(Command *root)
             clp_eprint("<%s>\n", operand->name.data);
         }
     }
-    fprintf(stderr, "\n");
     return required_operands_not_set;
 }
 
@@ -543,21 +541,33 @@ static inline void exit_help_or_if_invalid_opt(Command *root, Option *opt, char 
     }
 }
 
-static void exit_if_command_required_nb_opts_not_met(Command *root)
+static bool print_command_required_args_if_miss_required_args(Command *root)
 {
-    if (print_required_opts_if_missing(root) == true)
-        exit(EXIT_FAILURE);
+    bool miss = false;
+    if (print_command_required_opts_if_missing(root) == true)
+    {
+        miss = true;
+        fprintf(stderr, "\n");
+    }
+
+    if (print_command_required_operands_if_missing(root) == true)
+    {
+        miss = true;
+        fprintf(stderr, "\n");
+    }
+
+    return miss;
 }
 
-static void exit_if_command_required_nb_operands_size_not_met(Command *root)
+static void exit_print_command_required_args_if_miss_required_args(Command *root)
 {
-    if (print_required_operands_if_missing(root) == true)
+    if (print_command_required_args_if_miss_required_args(root) == true)
         exit(EXIT_FAILURE);
 }
 
 static void exit_print_usage_if_misused_command(Command *command)
 {
-    if (print_required_opts_if_missing(command) == false && print_required_operands_if_missing(command) == false)
+    if (print_command_required_args_if_miss_required_args(command) == false)
         return;
     print_usage_line(stderr, command);
     fprintf(stderr, "For more information, try '--help'.\n");
@@ -760,8 +770,7 @@ static void parse(Command *root, char **argv, Command **command)
         argv = set_operand_value(root, cmd_parsed_operand++, s, argv, false);
     }
 
-    exit_if_command_required_nb_operands_size_not_met(root);
-    exit_if_command_required_nb_opts_not_met(root);
+    exit_print_command_required_args_if_miss_required_args(root);
 }
 
 void clp_parse_args(Command *root, char **argv, Command **command)

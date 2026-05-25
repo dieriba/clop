@@ -1233,29 +1233,42 @@ static void test_subcommand_with_options_and_operands(void)
     clp_cleanup(&root);
 }
 
-/* operand mode prevents subcommand dispatch */
-static void test_operand_mode_prevents_subcommand_dispatch(void)
+/* adding a subcommand to a command that already has operands is rejected */
+static void _err_add_sub_when_operands_exist(void)
 {
     Command root, push;
-    Operand first, second;
+    Operand file;
     clp_init_command(&root, 0, "prog", NULL);
     clp_init_command(&push, 1, "push", NULL);
-    init_str_operand(&first, "first", false);
-    init_str_operand(&second, "second", false);
-    clp_add_command_operand(&root, &first);
-    clp_add_command_operand(&root, &second);
+    init_str_operand(&file, "file", false);
+    clp_add_command_operand(&root, &file);
     clp_add_command_sub_command(&root, &push);
+}
+static void test_add_subcommand_when_operands_exist_exits(void)
+{
+    ChildResult r = run_child(_err_add_sub_when_operands_exist);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "cannot have both operands and subcommands"));
+    D_TEST_NOT_NULL(strstr(r.err, "prog"));
+}
 
-    /* "file.txt" triggers operand_mode; "push" is then treated as second operand */
-    char *argv[] = {"prog", "file.txt", "push", NULL};
-    Command *cmd = NULL;
-    clp_parse_args(&root, argv, &cmd);
-    D_TEST_NULL(cmd);
-    D_TEST_EXPR(first.value_set == true);
-    D_TEST_EXPR(second.value_set == true);
-    D_TEST_STR_EQ(first.value.value_str, "file.txt");
-    D_TEST_STR_EQ(second.value.value_str, "push");
-    clp_cleanup(&root);
+/* adding an operand to a command that already has subcommands is rejected */
+static void _err_add_operand_when_subcommands_exist(void)
+{
+    Command root, push;
+    Operand file;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_command(&push, 1, "push", NULL);
+    init_str_operand(&file, "file", false);
+    clp_add_command_sub_command(&root, &push);
+    clp_add_command_operand(&root, &file);
+}
+static void test_add_operand_when_subcommands_exist_exits(void)
+{
+    ChildResult r = run_child(_err_add_operand_when_subcommands_exist);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "cannot have both operands and subcommands"));
+    D_TEST_NOT_NULL(strstr(r.err, "prog"));
 }
 
 /* -- in subcommand context terminates its option parsing */
@@ -2518,6 +2531,155 @@ static void test_unknown_short_in_combined_token_exits(void)
     D_TEST_NOT_NULL(strstr(r.err, "-z"));
 }
 
+/* ── print_usage tests ──────────────────────────────────────────────────── */
+
+/* usage line is printed to stderr when required option is missing (no args) */
+static void _usage_missing_required_opt(void)
+{
+    Command root;
+    Option output;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_option_raw(&output, "output", "o", NULL, false, ARG_ACT_SET, (Value){0}, TYPE_STR, true, false);
+    clp_add_command_option(&root, &output);
+    char *argv[] = {"prog", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_in_stderr_on_missing_required_option(void)
+{
+    ChildResult r = run_child(_usage_missing_required_opt);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "Usage:"));
+    D_TEST_NOT_NULL(strstr(r.err, "prog"));
+}
+
+/* "For more information, try '--help'." is printed alongside the usage line */
+static void test_for_more_info_hint_on_missing_required_option(void)
+{
+    ChildResult r = run_child(_usage_missing_required_opt);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "For more information, try '--help'."));
+}
+
+/* usage line is printed to stderr when required operand is missing (no args) */
+static void _usage_missing_required_operand(void)
+{
+    Command root;
+    Operand file;
+    clp_init_command(&root, 0, "prog", NULL);
+    clp_init_operand_raw(&file, "file", NULL, false, OPERAND_ACT_SET, (Value){0}, TYPE_STR, true);
+    clp_add_command_operand(&root, &file);
+    char *argv[] = {"prog", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_in_stderr_on_missing_required_operand(void)
+{
+    ChildResult r = run_child(_usage_missing_required_operand);
+    D_TEST_EXPR(r.status == EXIT_FAILURE);
+    D_TEST_NOT_NULL(strstr(r.err, "Usage:"));
+    D_TEST_NOT_NULL(strstr(r.err, "prog"));
+    D_TEST_NOT_NULL(strstr(r.err, "For more information, try '--help'."));
+}
+
+/* usage line in --help output contains "Usage:" and the command name */
+static void _usage_in_help_output(void)
+{
+    Command root;
+    clp_init_command(&root, 0, "mytool", "a test tool");
+    char *argv[] = {"mytool", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_appears_in_help_stdout(void)
+{
+    ChildResult r = run_child_stdout(_usage_in_help_output);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "Usage:"));
+    D_TEST_NOT_NULL(strstr(r.out, "mytool"));
+}
+
+/* usage line in --help shows "<COMMAND>" placeholder for commands with subcommands */
+static void _usage_help_with_subcommand(void)
+{
+    Command root, sub;
+    clp_init_command(&root, 0, "prog", "test");
+    clp_init_command(&sub, 1, "sub", "a subcommand");
+    clp_add_command_sub_command(&root, &sub);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_shows_command_placeholder(void)
+{
+    ChildResult r = run_child_stdout(_usage_help_with_subcommand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "<COMMAND>"));
+}
+
+/* usage line in --help shows operand names for commands with operands */
+static void _usage_help_with_operand(void)
+{
+    Command root;
+    Operand src, dst;
+    clp_init_command(&root, 0, "prog", "test");
+    init_str_operand(&src, "source", false);
+    init_str_operand(&dst, "dest", false);
+    clp_add_command_operand(&root, &src);
+    clp_add_command_operand(&root, &dst);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_shows_operand_names(void)
+{
+    ChildResult r = run_child_stdout(_usage_help_with_operand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "<source>"));
+    D_TEST_NOT_NULL(strstr(r.out, "<dest>"));
+}
+
+/* usage line shows "..." ellipsis for list operands */
+static void _usage_help_with_list_operand(void)
+{
+    Command root;
+    Operand files;
+    clp_init_command(&root, 0, "prog", "test");
+    init_list_operand(&files, "files", false);
+    clp_add_command_operand(&root, &files);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_shows_ellipsis_for_list_operand(void)
+{
+    ChildResult r = run_child_stdout(_usage_help_with_list_operand);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "<files>..."));
+}
+
+/* usage line in --help includes option names */
+static void _usage_help_with_options(void)
+{
+    Command root;
+    Option verbose, output;
+    clp_init_command(&root, 0, "prog", "test");
+    init_bool_opt(&verbose, "verbose", "v", false);
+    init_str_opt(&output, "output", "o", false);
+    clp_add_command_option(&root, &verbose);
+    clp_add_command_option(&root, &output);
+    char *argv[] = {"prog", "--help", NULL};
+    Command *cmd = NULL;
+    clp_parse_args(&root, argv, &cmd);
+}
+static void test_usage_line_includes_option_names(void)
+{
+    ChildResult r = run_child_stdout(_usage_help_with_options);
+    D_TEST_EXPR(r.status == EXIT_SUCCESS);
+    D_TEST_NOT_NULL(strstr(r.out, "--verbose"));
+    D_TEST_NOT_NULL(strstr(r.out, "--output"));
+}
+
 /* ── help / -h built-in ─────────────────────────────────────────────────── */
 
 /* registering "help" as a long option name is rejected (reserved) */
@@ -2749,7 +2911,6 @@ int main(void)
         D_TEST_GENERATE_TEST(test_options_at_each_of_three_levels),
         D_TEST_GENERATE_TEST(test_sibling_subcommand_options_are_isolated),
         D_TEST_GENERATE_TEST(test_subcommand_with_options_and_operands),
-        D_TEST_GENERATE_TEST(test_operand_mode_prevents_subcommand_dispatch),
         D_TEST_GENERATE_TEST(test_double_hyphen_in_subcommand_context),
         D_TEST_GENERATE_TEST(test_combined_short_flags_in_subcommand),
         D_TEST_GENERATE_TEST(test_count_option_in_subcommand),
@@ -2793,6 +2954,8 @@ int main(void)
         D_TEST_GENERATE_TEST(test_unknown_short_in_combined_token_exits),
         D_TEST_GENERATE_TEST(test_duplicate_operand_name_warns_no_exit),
         D_TEST_GENERATE_TEST(test_long_opt_name_with_invalid_chars_exits),
+        D_TEST_GENERATE_TEST(test_add_subcommand_when_operands_exist_exits),
+        D_TEST_GENERATE_TEST(test_add_operand_when_subcommands_exist_exits),
         D_TEST_GENERATE_TEST(test_short_opt_missing_value_exits),
         D_TEST_GENERATE_TEST(test_invalid_value_via_short_opt_exits),
         D_TEST_GENERATE_TEST(test_invalid_double_option_value_exits),
@@ -2802,6 +2965,15 @@ int main(void)
         D_TEST_GENERATE_TEST(test_invalid_double_operand_value_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_options_exits),
         D_TEST_GENERATE_TEST(test_multiple_missing_required_operands_exits),
+        /* print_usage */
+        D_TEST_GENERATE_TEST(test_usage_line_in_stderr_on_missing_required_option),
+        D_TEST_GENERATE_TEST(test_for_more_info_hint_on_missing_required_option),
+        D_TEST_GENERATE_TEST(test_usage_line_in_stderr_on_missing_required_operand),
+        D_TEST_GENERATE_TEST(test_usage_line_appears_in_help_stdout),
+        D_TEST_GENERATE_TEST(test_usage_line_shows_command_placeholder),
+        D_TEST_GENERATE_TEST(test_usage_line_shows_operand_names),
+        D_TEST_GENERATE_TEST(test_usage_line_shows_ellipsis_for_list_operand),
+        D_TEST_GENERATE_TEST(test_usage_line_includes_option_names),
         /* help / -h built-in */
         D_TEST_GENERATE_TEST(test_registering_help_long_opt_exits),
         D_TEST_GENERATE_TEST(test_long_help_exits_success_and_prints_description),
