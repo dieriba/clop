@@ -1,3 +1,84 @@
+/*
+ * clp — Command-Line Parser
+ * =========================
+ *
+ * A C library for building command-line interfaces with options, operands,
+ * subcommands, and global options.
+ *
+ * CONCEPTS
+ * --------
+ * Option   — a named flag or key/value pair prefixed with - or --.
+ *            Short form: -v, -oFILE, -o FILE
+ *            Long form:  --verbose, --output=FILE, --output FILE
+ *            Combined short bools/counts: -vvv, -abc
+ *
+ * Operand  — a positional argument (no leading -).
+ *            Positional order matches registration order.
+ *
+ * Command  — a named entry point that owns options, operands, or subcommands.
+ *            A command cannot have both operands and subcommands.
+ *
+ * OPTION ACTIONS
+ * --------------
+ * OPT_ACT_SET   — stores a single typed value; requires an argument unless TYPE_BOOL.
+ * OPT_ACT_COUNT — increments a usize counter each time the flag appears; no argument.
+ * OPT_ACT_LIST  — collects comma-separated values into a DDynArray of DStringView.
+ * OPT_ACT_KV    — collects key=value pairs (comma-separated) into a DUnorderedMap.
+ *
+ * OPERAND ACTIONS
+ * ---------------
+ * OPND_ACT_SET  — stores a single typed value.
+ * OPND_ACT_LIST — consumes all remaining positional arguments into a DDynArray.
+ * OPND_ACT_KV   — parses a single key=value positional argument into a DUnorderedMap.
+ *
+ * VALUE TYPES
+ * -----------
+ * TYPE_BOOL   → value.value_bool         (bool)
+ * TYPE_CHAR   → value.value_char         (char)
+ * TYPE_STR    → value.value_d_string_view (DStringView; .data is the C string)
+ * TYPE_LONG   → value.value_long         (long)
+ * TYPE_USIZE  → value.value_usize        (usize)
+ * TYPE_DOUBLE → value.value_double       (double)
+ *
+ * PARSING RULES
+ * -------------
+ * - "--" terminates option parsing; everything after is treated as an operand.
+ * - Options may appear before, between, or after operands (GNU scanning).
+ * - "--help" always prints help and exits with 0.
+ * - "-h" triggers help only when the user has not registered their own -h option.
+ * - "help" is a reserved long option name.
+ * - Required operands must be registered before optional ones.
+ * - Global options (global=true) are inherited by all descendant commands and are
+ *   checked for required status at each level that requires them.
+ *
+ * OPTION NAME RULES
+ * -----------------
+ * - Long names must start with a letter and contain only [a-z A-Z 0-9 -].
+ * - Short names must be a single alphanumeric character [a-z A-Z 0-9].
+ * - An option may have only a short name, only a long name, or both.
+ *
+ * QUICK START
+ * -----------
+ *   Command root;
+ *   Option verbose;
+ *   Operand file;
+ *   clp_init_command(&root, 0, "prog", "my program");
+ *   clp_init_option(&verbose, "verbose", "v", "enable verbose output", TYPE_BOOL, false, false);
+ *   clp_init_opnd(&file, "file", "input file", TYPE_STR, true);
+ *   clp_add_command_option(&root, &verbose);
+ *   clp_add_command_operand(&root, &file);
+ *   Command *cmd = NULL;
+ *   clp_parse_args(&root, argv, &cmd);
+ *   if (verbose.value_set) { ... }
+ *   printf("%s\n", file.value.value_d_string_view.data);
+ *   clp_cleanup(&root);
+ *
+ * ERROR HANDLING
+ * --------------
+ * All functions that detect invalid state print a message to stderr and call
+ * exit(EXIT_FAILURE).  There is no return-code error path.
+ */
+
 #ifndef CLP_H
 #define CLP_H
 
@@ -93,8 +174,8 @@ typedef union Value
 {
     DUnorderedMap value_kv;
     DDynArray value_list;
-    usize value_usize;
     DStringView value_d_string_view;
+    usize value_usize;
     double value_double;
     long value_long;
     bool value_bool;
@@ -136,21 +217,136 @@ struct Command
     DDynArray operands;
     DDynArray sub_commands;
     DDynArray extra;
-    Command *parent_command;
     DStringView name;
+    Command *parent_command;
     char *description;
     int code;
 };
 
+/* Initialize a command.
+ *
+ *   command     — caller-owned storage for the Command (not heap-allocated).
+ *   code        — user-defined integer identifier; useful for switch dispatch
+ *                 after clp_parse_args returns the matched subcommand.
+ *   name        — command name as it appears in argv (e.g. "push").
+ *                 Must not be NULL or empty.
+ *   description — shown in --help output; NULL is accepted (shown as
+ *                 "no associated description").
+ *
+ * Exits on NULL command or NULL name.
+ */
 void clp_init_command(Command *command, int code, char *name, char *description);
+
+/* Attach sub_command as a child of command.
+ *
+ * Sets sub_command->parent_command = command.  A command cannot have both
+ * operands and subcommands; attempting to do so exits.
+ *
+ * Exits on NULL arguments or if command already has operands registered.
+ */
 void clp_add_command_sub_command(Command *command, Command *sub_command);
+
+/* Register an option on a command.
+ *
+ * Duplicate long or short names on the same command cause an exit.
+ * Exits on NULL arguments.
+ */
 void clp_add_command_option(Command *command, Option *command_option);
+
+/* Register an operand on a command.
+ *
+ * Operands are consumed in registration order.  A required operand must not
+ * follow an optional one.  A duplicate operand name emits a warning to stderr
+ * but does not exit.  A command cannot have both operands and subcommands.
+ *
+ * Exits on NULL arguments, if subcommands are already present, or on a
+ * required-after-optional ordering violation.
+ */
 void clp_add_command_operand(Command *command, Operand *command_operand);
+
+/* Low-level option initializer — prefer the clp_init_option* macros.
+ *
+ *   opt               — caller-owned storage for the Option.
+ *   long_name         — long option name without the "--" prefix, or NULL for
+ *                       a short-only option.  Must start with a letter and
+ *                       contain only [a-z A-Z 0-9 -].  "help" is reserved.
+ *   short_name        — single-character string (e.g. "v"), or NULL for a
+ *                       long-only option.  Must be alphanumeric [a-z A-Z 0-9].
+ *   description       — help text; NULL is accepted.
+ *   has_default_value — pass true when value carries a pre-filled default.
+ *                       Pass false for LIST/KV so the library allocates the
+ *                       internal collection.
+ *   action            — OPT_ACT_SET | OPT_ACT_COUNT | OPT_ACT_LIST | OPT_ACT_KV.
+ *   value             — initial/default Value; ignored for LIST and KV when
+ *                       has_default_value is false.
+ *   type              — value type; OPT_ACT_COUNT requires TYPE_USIZE.
+ *   required          — if true, clp_parse_args exits when the option is absent.
+ *   global            — if true, the option is visible in all descendant commands.
+ *
+ * Exits on NULL opt, both names NULL, invalid names, reserved name, or
+ * OPT_ACT_COUNT paired with a type other than TYPE_USIZE.
+ */
 void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
-void clp_init_opnd_raw(Operand *operands, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required);
+
+/* Low-level operand initializer — prefer the clp_init_opnd* macros.
+ *
+ *   op                — caller-owned storage for the Operand.
+ *   name              — operand name shown in usage and --help (e.g. "file").
+ *                       Must not be NULL or empty.
+ *   description       — help text; NULL is accepted.
+ *   has_default_value — pass true when value carries a pre-filled default.
+ *                       Pass false for LIST/KV so the library allocates the
+ *                       internal collection.
+ *   action            — OPND_ACT_SET | OPND_ACT_LIST | OPND_ACT_KV.
+ *   value             — initial/default Value; ignored for LIST and KV when
+ *                       has_default_value is false.
+ *   type              — value type.
+ *   required          — if true, clp_parse_args exits when the operand is absent.
+ *
+ * Exits on NULL or empty op/name.
+ */
+void clp_init_opnd_raw(Operand *op, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required);
+
+/* Parse argv against the command tree rooted at root.
+ *
+ * argv must be the raw argv from main (argv[0] is the program name).
+ * On return, *command points to the deepest dispatched subcommand, or stays
+ * NULL if no subcommand token was matched.
+ *
+ * Parsing follows GNU conventions: options may appear before, between, or
+ * after operands.  "--" terminates option scanning; everything after it is
+ * treated as an operand.  "--help" (and "-h" when the user has not registered
+ * their own -h) prints help and exits with EXIT_SUCCESS.
+ *
+ * Global options marked on a parent are collected into the matched subcommand
+ * after parsing and checked for required status.
+ *
+ * Exits on NULL/empty root or argv, unknown options, type conversion failures,
+ * too many operands, or any missing required option/operand; prints usage and
+ * a "--help" hint before exiting.
+ */
 void clp_parse_args(Command *root, char **argv, Command **command);
+
+/* Return the option registered on command with the given short name, or NULL.
+ * Returns NULL when command is NULL.
+ */
 Option *clp_get_option_by_short(Command *command, char shrt);
+
+/* Return the option registered on command with the given long name, or NULL.
+ * Returns NULL when command is NULL or lng is an empty view.
+ */
 Option *clp_get_option_by_long(Command *command, DStringView lng);
+
+/* Return the operand registered on command with the given name, or NULL.
+ * Returns NULL when command is NULL.
+ */
 Operand *clp_get_operand(Command *command, DStringView opnd_name);
+
+/* Recursively release all resources allocated inside the command tree.
+ *
+ * Destroys the internal DDynArray and DUnorderedMap storage for every option
+ * and operand at every level.  The Command, Option, and Operand structs are
+ * caller-owned and are not freed.  Safe to call with NULL.
+ */
 void clp_cleanup(Command *root);
 #endif
