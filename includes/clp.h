@@ -6,7 +6,6 @@
 #include "d_string_view.h"
 #include "d_error.h"
 #include "d_unordered_map.h"
-#define FLAG_SHORT_OPT_NOT_SET 0xFF
 
 #define clp_init_option(opt, long_name, short_name, description, type, required, global) \
     clp_init_option_raw(opt, long_name, short_name, description, false, (Value){0}, type, required, global)

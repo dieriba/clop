@@ -21,6 +21,7 @@
 #define STR_STARTS_WITH_HYPEN(s) *(s) == '-'
 #define HELP_OPT "help"
 #define HELP_COL_GAP 4
+#define FLAG_SHORT_OPT_NOT_SET 0xFF
 
 static void _free_command(void **command);
 
