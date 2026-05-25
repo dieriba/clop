@@ -1,3 +1,0 @@
-[submodule "c_lib"]
-	path = c_lib
-	url = git@github.com:dieriba/c_lib.git
