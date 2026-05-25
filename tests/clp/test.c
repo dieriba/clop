@@ -2645,7 +2645,7 @@ static void _usage_help_with_list_operand(void)
     Command root;
     Operand files;
     clp_init_command(&root, 0, "prog", "test");
-    init_list_operand(&files, "files", false);
+    init_list_operand(&files, "files", true);
     clp_add_command_operand(&root, &files);
     char *argv[] = {"prog", "--help", NULL};
     Command *cmd = NULL;
