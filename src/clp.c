@@ -419,6 +419,8 @@ static void print_usage_line(FILE *stream, Command *command)
     for (size_t i = 0; i < d_dyn_array_get_size_safe(&(command->options)); i++)
     {
         Option *option = d_dyn_array_get_elem_deref_addr_at_safe(options, i);
+        if (option->required == false)
+            continue;
         if (option->long_name.size != 0)
             fprintf(stream, "--%s", option->long_name.data);
         else
@@ -436,7 +438,9 @@ static void print_usage_line(FILE *stream, Command *command)
         for (size_t i = 0; i < d_dyn_array_get_size_safe(&(command->operands)); i++)
         {
             Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
-                        fprintf(stream, "<%s>", operand->name.data);
+            if (operand->required == false)
+                continue;
+            fprintf(stream, "<%s>", operand->name.data);
             if (operand->action == OPERAND_ACT_LIST)
                 fprintf(stream, "...");
             fprintf(stream, " ");
