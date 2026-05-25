@@ -5,6 +5,8 @@ A C static library for building command-line interfaces with options, operands, 
 ## Building
 
 ```sh
+git clone --recurse-submodules git@github.com:dieriba/clp.git
+cd clp
 make        # builds target/build/lib/libclp.a
 make tests  # builds and links the test binary
 ```
