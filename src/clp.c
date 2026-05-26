@@ -5,6 +5,7 @@
 #include "d_unordered_map.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
+#include <assert.h>
 
 #include "shared.h"
 #include "clp.h"
@@ -22,20 +23,11 @@ static bool is_valid_short(char shrt)
     return isalnum(shrt);
 }
 
-static void exit_if_not_valid_short_opt_name(char short_opt)
-{
-    if (is_valid_short(short_opt) == false)
-    {
-        clp_eprint("'-%c' is not a valid option name\n", short_opt);
-        clp_eprint_exit("a short option must be a single alphanumeric character [a-z A-Z 0-9]\n");
-    }
-}
-
-
 void clp_init_command(Command *command, int code, char *name, char *description)
 {
-    if (command == NULL || name == NULL)
-        clp_invalid_arg_exit("null argument to clp_init_command\n");
+    assert(command != NULL);
+    assert(name != NULL);
+
     command->name = d_string_view_from_c_string(name);
     command->description = description == NULL ? NO_DESC : description;
     command->code = code;
@@ -51,13 +43,14 @@ void clp_init_command(Command *command, int code, char *name, char *description)
 void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value,
                          OptAction action, Value value, Type type, bool required, bool global)
 {
-    if (opt == NULL || (long_name == NULL && short_name == NULL))
-        clp_invalid_arg_exit("null argument to clp_init_option_raw\n");
+    assert(opt != NULL);
+    assert(long_name != NULL || short_name != NULL);
+
     char shrt_name = FLAG_SHORT_OPT_NOT_SET;
     opt->long_name = d_string_view_from_c_string(long_name);
 
-    if (short_name)
-        exit_if_not_valid_short_opt_name(shrt_name = *short_name);
+    if (short_name && is_valid_short(*short_name) == false)
+        clp_invalid_arg_exit("'-%c' is not a valid option name\na short option must be a single alphanumeric character [a-z A-Z 0-9]\n", *short_name);
     if (long_name)
     {
         if (PSEUDO_FAST_STRCMP(long_name, HELP_OPT))
@@ -100,8 +93,11 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
 
 void clp_init_opnd_raw(Operand *operand, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required)
 {
-    if (operand == NULL || name == NULL || *name == 0)
-        clp_invalid_arg_exit("null argument to clp_init_opnd_raw\n");
+    assert(operand != NULL);
+    assert(name != NULL);
+
+    if (invalid_operand_name(name))
+        clp_invalid_arg_exit();
 
     if (has_default_value == false && action == OPND_ACT_LIST)
     {
@@ -163,22 +159,20 @@ static Operand *get_command_opnd_by_name(Command *command, DStringView name)
 
 Option *clp_get_option_by_short(Command *command, char shrt)
 {
-    if (command == NULL)
-        return NULL;
+    assert(command != NULL);
     return get_option_by_predicate(command, &shrt, eq_short_opt);
 }
 
 Option *clp_get_option_by_long(Command *command, DStringView lng)
 {
-    if (command == NULL || lng.size == 0)
-        return NULL;
+    assert(command != NULL);
+    assert(lng.size > 0);
     return get_option_by_predicate(command, &lng, eq_long_opt);
 }
 
 Operand *clp_get_operand(Command *command, DStringView opnd_name)
 {
-    if (command == NULL)
-        return NULL;
+    assert(command != NULL);
     DDynArray *operands = &command->operands;
     usize size = d_dyn_array_get_size_safe(operands);
     for (usize i = 0; i < size; i++)
@@ -192,8 +186,9 @@ Operand *clp_get_operand(Command *command, DStringView opnd_name)
 
 void clp_add_command_sub_command(Command *command, Command *sub_command)
 {
-    if (command == NULL || sub_command == NULL)
-        clp_invalid_arg_exit("null argument to clp_add_command_sub_command\n");
+    assert(command != NULL);
+    assert(sub_command != NULL);
+
     if (d_dyn_array_get_size_safe(&(command->operands)) > 0)
         clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
 
@@ -204,8 +199,9 @@ void clp_add_command_sub_command(Command *command, Command *sub_command)
 
 void clp_add_command_option(Command *command, Option *command_option)
 {
-    if (command == NULL || command_option == NULL)
-        clp_invalid_arg_exit("null argument to clp_add_command_option\n");
+    assert(command != NULL);
+    assert(command_option != NULL);
+
     if (clp_get_option_by_long(command, command_option->long_name))
         clp_eprint_exit("command %s: option '--%s' already registered\n", command->name.data, command_option->long_name.data);
     if (clp_get_option_by_short(command, command_option->short_name))
@@ -216,8 +212,9 @@ void clp_add_command_option(Command *command, Option *command_option)
 
 void clp_add_command_operand(Command *command, Operand *command_operand)
 {
-    if (command == NULL || command_operand == NULL)
-        clp_invalid_arg_exit("null argument to clp_add_command_operand\n");
+    assert(command != NULL);
+    assert(command_operand != NULL);
+
     if (d_dyn_array_get_size_safe(&(command->sub_commands)) > 0)
         clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
 
@@ -235,8 +232,9 @@ void clp_add_command_operand(Command *command, Operand *command_operand)
 
 void clp_parse_args(Command *root, char **argv, Command **command)
 {
-    if (root == NULL || argv == NULL || *argv == NULL)
-        clp_invalid_arg_exit("null argument to clp_parse_args\n");
+    assert(root != NULL);
+    assert(command != NULL);
+    assert(argv != NULL && *argv != NULL);
     parse(root, argv, command);
 }
 
@@ -247,8 +245,7 @@ static void _free_command(void **command)
 
 void clp_cleanup(Command *root)
 {
-    if (root == NULL)
-        return;
+    assert(root != NULL);
     DDynArray *sub_commands = &root->sub_commands;
     usize size = d_dyn_array_get_size_safe(sub_commands);
     for (usize i = 0; i < size; i++)
