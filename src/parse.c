@@ -108,7 +108,7 @@ static void set_opt_value(Command *root, Option *opt, const char *operand, char 
 static char **set_opnd_value(Command *root, usize cursor, char *raw_operand, char **argv, bool consume_all)
 {
     DDynArray *operands = &root->operands;
-    usize operands_size = d_dyn_array_get_size_safe(operands);
+    usize operands_size = d_dyn_array_get_size(operands);
 
     if (cursor >= operands_size && raw_operand != NULL)
         clp_eprint_exit("command %s: too many operands provided\n", root->name.data);
@@ -222,7 +222,7 @@ static void command_collect_parent_commands_options(Command *command)
     while ((command = command->parent_command) != NULL)
     {
         DDynArray *curr_opts = &command->options;
-        for (size_t i = 0; i < d_dyn_array_get_size_safe(curr_opts); i++)
+        for (size_t i = 0; i < d_dyn_array_get_size(curr_opts); i++)
         {
             Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(curr_opts, i);
             if (opt->global && d_dyn_array_push_back_ptr(opts, opt) != D_OK)
@@ -251,7 +251,7 @@ void parse(Command *root, char **argv, Command **command)
     ++argv; // skip program name at first call then skip current command name already parsed
     char *s;
     DDynArray *sub_commands = &root->sub_commands;
-    usize sub_commands_size = d_dyn_array_get_size_safe(sub_commands);
+    usize sub_commands_size = d_dyn_array_get_size(sub_commands);
     usize cmd_parsed_operand = 0;
 
     if (*argv == NULL)

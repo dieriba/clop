@@ -668,7 +668,7 @@ static void test_list_option_single_entry(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(files.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&files.value.value_list) == 1);
+    D_TEST_EXPR(d_dyn_array_get_size(&files.value.value_list) == 1);
     clp_cleanup(&root);
 }
 
@@ -684,7 +684,7 @@ static void test_list_option_comma_separated(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(files.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&files.value.value_list) == 3);
+    D_TEST_EXPR(d_dyn_array_get_size(&files.value.value_list) == 3);
 
     DStringView tok;
     D_TEST_EXPR(d_dyn_array_get_elem_at(&files.value.value_list, 0, &tok) == D_OK);
@@ -828,7 +828,7 @@ static void test_list_opnd_consumes_remaining_args(void)
     Command *cmd = NULL;
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(files.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&files.value.value_list) == 3);
+    D_TEST_EXPR(d_dyn_array_get_size(&files.value.value_list) == 3);
     clp_cleanup(&root);
 }
 
@@ -1340,7 +1340,7 @@ static void test_list_option_in_subcommand(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(cmd == &build);
     D_TEST_EXPR(features.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&features.value.value_list) == 3);
+    D_TEST_EXPR(d_dyn_array_get_size(&features.value.value_list) == 3);
     clp_cleanup(&root);
 }
 
@@ -1554,7 +1554,7 @@ static void test_subcommand_with_list_operand(void)
     clp_parse_args(&root, argv, &cmd);
     D_TEST_EXPR(cmd == &add);
     D_TEST_EXPR(files.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&files.value.value_list) == 3);
+    D_TEST_EXPR(d_dyn_array_get_size(&files.value.value_list) == 3);
     clp_cleanup(&root);
 }
 
@@ -1953,7 +1953,7 @@ static void test_five_level_deep_with_many_options_and_operands(void)
 
     /* LIST operand: 3 entries */
     D_TEST_EXPR(files.value_set == true);
-    D_TEST_EXPR(d_dyn_array_get_size_safe(&files.value.value_list) == 3);
+    D_TEST_EXPR(d_dyn_array_get_size(&files.value.value_list) == 3);
     DStringView fv;
     D_TEST_EXPR(d_dyn_array_get_elem_at(&files.value.value_list, 0, &fv) == D_OK);
     D_TEST_EXPR(d_string_view_compare_against_c_string(fv, "fa.c"));

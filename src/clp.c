@@ -132,7 +132,7 @@ static inline bool eq_long_opt(Option *opt, void *ctx)
 static Option *get_option_by_predicate(Command *command, void *ctx, bool (*predicate)(Option *, void *))
 {
     DDynArray *opts = &command->options;
-    usize size = d_dyn_array_get_size_safe(opts);
+    usize size = d_dyn_array_get_size(opts);
     for (usize i = 0; i < size; i++)
     {
         Option *option = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
@@ -145,7 +145,7 @@ static Option *get_option_by_predicate(Command *command, void *ctx, bool (*predi
 static Operand *get_command_opnd_by_name(Command *command, DStringView name)
 {
     DDynArray *operands = &command->operands;
-    usize size = d_dyn_array_get_size_safe(operands);
+    usize size = d_dyn_array_get_size(operands);
     for (usize i = 0; i < size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
@@ -172,7 +172,7 @@ Operand *clp_get_operand(Command *command, DStringView opnd_name)
 {
     assert(command != NULL);
     DDynArray *operands = &command->operands;
-    usize size = d_dyn_array_get_size_safe(operands);
+    usize size = d_dyn_array_get_size(operands);
     for (usize i = 0; i < size; i++)
     {
         Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
@@ -187,7 +187,7 @@ void clp_add_command_sub_command(Command *command, Command *sub_command)
     assert(command != NULL);
     assert(sub_command != NULL);
 
-    if (d_dyn_array_get_size_safe(&(command->operands)) > 0)
+    if (d_dyn_array_get_size(&(command->operands)) > 0)
         clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
 
     sub_command->parent_command = command;
@@ -213,11 +213,11 @@ void clp_add_command_operand(Command *command, Operand *command_operand)
     assert(command != NULL);
     assert(command_operand != NULL);
 
-    if (d_dyn_array_get_size_safe(&(command->sub_commands)) > 0)
+    if (d_dyn_array_get_size(&(command->sub_commands)) > 0)
         clp_invalid_arg_exit("command '%s' cannot have both operands and subcommands\n", command->name.data);
 
     DDynArray *ops = &command->operands;
-    usize size = d_dyn_array_get_size_safe(ops);
+    usize size = d_dyn_array_get_size(ops);
     Operand *last_operand = size == 0 ? NULL : d_dyn_array_get_elem_deref_addr_at_safe(ops, size - 1);
 
     if (get_command_opnd_by_name(command, command_operand->name))
@@ -245,7 +245,7 @@ void clp_cleanup(Command *root)
 {
     assert(root != NULL);
     DDynArray *sub_commands = &root->sub_commands;
-    usize size = d_dyn_array_get_size_safe(sub_commands);
+    usize size = d_dyn_array_get_size(sub_commands);
     for (usize i = 0; i < size; i++)
         clp_cleanup(d_dyn_array_get_elem_deref_addr_at_safe(sub_commands, i));
     free_command(root);

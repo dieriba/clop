@@ -5,7 +5,6 @@
 
 #define HELP_COL_GAP 4
 
-
 static usize opt_name_width(Option *opt)
 {
     usize w = 0;
@@ -40,7 +39,7 @@ static usize max_col_width(Command *root)
     usize max = 0;
 
     DDynArray *opts = &root->options;
-    usize size = d_dyn_array_get_size_safe(opts);
+    usize size = d_dyn_array_get_size(opts);
     for (usize i = 0; i < size; i++)
     {
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
@@ -50,7 +49,7 @@ static usize max_col_width(Command *root)
     }
 
     DDynArray *cmds = &root->sub_commands;
-    size = d_dyn_array_get_size_safe(cmds);
+    size = d_dyn_array_get_size(cmds);
     for (usize i = 0; i < size; i++)
     {
         Command *sub = d_dyn_array_get_elem_deref_addr_at_safe(cmds, i);
@@ -60,7 +59,7 @@ static usize max_col_width(Command *root)
     }
 
     DDynArray *ops = &root->operands;
-    size = d_dyn_array_get_size_safe(ops);
+    size = d_dyn_array_get_size(ops);
     for (usize i = 0; i < size; i++)
     {
         Operand *op = d_dyn_array_get_elem_deref_addr_at_safe(ops, i);
@@ -74,7 +73,7 @@ static usize max_col_width(Command *root)
 
 static void print_options(DDynArray *opts, usize col_width)
 {
-    usize n = d_dyn_array_get_size_safe(opts);
+    usize n = d_dyn_array_get_size(opts);
     for (usize i = 0; i < n; i++)
     {
         Option *opt = d_dyn_array_get_elem_deref_addr_at_safe(opts, i);
@@ -115,7 +114,7 @@ static void print_options(DDynArray *opts, usize col_width)
 
 static void print_sub_commands(DDynArray *cmds, usize col_width)
 {
-    usize n = d_dyn_array_get_size_safe(cmds);
+    usize n = d_dyn_array_get_size(cmds);
     for (usize i = 0; i < n; i++)
     {
         Command *sub = d_dyn_array_get_elem_deref_addr_at_safe(cmds, i);
@@ -128,7 +127,7 @@ static void print_sub_commands(DDynArray *cmds, usize col_width)
 
 static void print_operands(DDynArray *ops, usize col_width)
 {
-    usize n = d_dyn_array_get_size_safe(ops);
+    usize n = d_dyn_array_get_size(ops);
     for (usize i = 0; i < n; i++)
     {
         Operand *op = d_dyn_array_get_elem_deref_addr_at_safe(ops, i);
@@ -154,7 +153,7 @@ void print_usage_line(FILE *stream, Command *command)
     fprintf(stream, "[OPTIONS] ");
 
     DDynArray *options = &command->options;
-    for (size_t i = 0; i < d_dyn_array_get_size_safe(&(command->options)); i++)
+    for (size_t i = 0; i < d_dyn_array_get_size(&(command->options)); i++)
     {
         Option *option = d_dyn_array_get_elem_deref_addr_at_safe(options, i);
         if (option->required == false)
@@ -166,14 +165,14 @@ void print_usage_line(FILE *stream, Command *command)
         fprintf(stream, " <%s> ", type_to_str(option->type));
     }
 
-    bool has_cmd = d_dyn_array_get_size_safe(&(command->sub_commands)) > 0;
-    bool has_operands = d_dyn_array_get_size_safe(&(command->operands)) > 0;
+    bool has_cmd = d_dyn_array_get_size(&(command->sub_commands)) > 0;
+    bool has_operands = d_dyn_array_get_size(&(command->operands)) > 0;
     if (has_cmd)
         fprintf(stream, "<COMMAND>");
     else if (has_operands)
     {
         DDynArray *operands = &command->operands;
-        for (size_t i = 0; i < d_dyn_array_get_size_safe(&(command->operands)); i++)
+        for (size_t i = 0; i < d_dyn_array_get_size(&(command->operands)); i++)
         {
             Operand *operand = d_dyn_array_get_elem_deref_addr_at_safe(operands, i);
             if (operand->required == false)
@@ -191,7 +190,7 @@ void print_usage_line(FILE *stream, Command *command)
 static bool print_command_required_opts_if_missing(Command *root)
 {
     DDynArray *opts = &root->options;
-    usize size = d_dyn_array_get_size_safe(opts);
+    usize size = d_dyn_array_get_size(opts);
     bool required_opts_not_set = false;
     for (size_t i = 0; i < size; i++)
     {
@@ -215,7 +214,7 @@ static bool print_command_required_opts_if_missing(Command *root)
 static bool print_command_required_operands_if_missing(Command *root)
 {
     DDynArray *operands = &root->operands;
-    usize size = d_dyn_array_get_size_safe(operands);
+    usize size = d_dyn_array_get_size(operands);
     bool required_operands_not_set = false;
     for (size_t i = 0; i < size; i++)
     {
@@ -239,9 +238,9 @@ static void print_command_help(Command *root)
 
     printf("Description: %s\n\n", root->description);
 
-    bool has_opts = d_dyn_array_get_size_safe(&root->options) > 0;
-    bool has_cmds = d_dyn_array_get_size_safe(&root->sub_commands) > 0;
-    bool has_ops = d_dyn_array_get_size_safe(&root->operands) > 0;
+    bool has_opts = d_dyn_array_get_size(&root->options) > 0;
+    bool has_cmds = d_dyn_array_get_size(&root->sub_commands) > 0;
+    bool has_ops = d_dyn_array_get_size(&root->operands) > 0;
 
     if (has_opts)
     {
