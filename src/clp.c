@@ -1,11 +1,10 @@
 #include <ctype.h>
-#include <errno.h>
 #include <string.h>
+#include <assert.h>
 
 #include "d_unordered_map.h"
 #include "d_hash_set.h"
 #include "d_general_lib.h"
-#include <assert.h>
 
 #include "shared.h"
 #include "clp.h"
@@ -96,8 +95,8 @@ void clp_init_opnd_raw(Operand *operand, char *name, char *description, bool has
     assert(operand != NULL);
     assert(name != NULL);
 
-    if (invalid_operand_name(name))
-        clp_invalid_arg_exit();
+    operand->name = d_string_view_from_c_string(name);
+    exit_if_not_valid_long_opt_name(operand->name);
 
     if (has_default_value == false && action == OPND_ACT_LIST)
     {
@@ -118,7 +117,6 @@ void clp_init_opnd_raw(Operand *operand, char *name, char *description, bool has
     operand->has_default_value = has_default_value;
     operand->type = type;
     operand->required = required;
-    operand->name = d_string_view_from_c_string(name);
 }
 
 static inline bool eq_short_opt(Option *opt, void *ctx)
