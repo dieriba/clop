@@ -79,8 +79,10 @@
  *
  * ERROR HANDLING
  * --------------
- * All functions that detect invalid state print a message to stderr and call
- * exit(EXIT_FAILURE).  There is no return-code error path.
+ * Runtime errors (bad option names, duplicates, OOM, parse failures) print a
+ * message to stderr and call exit(EXIT_FAILURE).  There is no return-code error path.
+ * Programming errors (NULL passed to a parameter documented as must not be NULL)
+ * are caught by assert and call abort() in debug builds.
  */
 
 #ifndef CLP_H
@@ -237,7 +239,7 @@ struct Command
  *   description — shown in --help output; NULL is accepted (shown as
  *                 "no associated description").
  *
- * Exits on NULL command or NULL name.
+ * command and name must not be NULL.
  */
 void clp_init_command(Command *command, int code, char *name, char *description);
 
@@ -246,14 +248,14 @@ void clp_init_command(Command *command, int code, char *name, char *description)
  * Sets sub_command->parent_command = command.  A command cannot have both
  * operands and subcommands; attempting to do so exits.
  *
- * Exits on NULL arguments or if command already has operands registered.
+ * command and sub_command must not be NULL. Exits if command already has operands registered.
  */
 void clp_add_command_sub_command(Command *command, Command *sub_command);
 
 /* Register an option on a command.
  *
+ * command and command_option must not be NULL.
  * Duplicate long or short names on the same command cause an exit.
- * Exits on NULL arguments.
  */
 void clp_add_command_option(Command *command, Option *command_option);
 
@@ -263,8 +265,8 @@ void clp_add_command_option(Command *command, Option *command_option);
  * follow an optional one.  A duplicate operand name emits a warning to stderr
  * but does not exit.  A command cannot have both operands and subcommands.
  *
- * Exits on NULL arguments, if subcommands are already present, or on a
- * required-after-optional ordering violation.
+ * command and command_operand must not be NULL.
+ * Exits if subcommands are already present or on a required-after-optional ordering violation.
  */
 void clp_add_command_operand(Command *command, Operand *command_operand);
 
@@ -287,8 +289,8 @@ void clp_add_command_operand(Command *command, Operand *command_operand);
  *   required          — if true, clp_parse_args exits when the option is absent.
  *   global            — if true, the option is visible in all descendant commands.
  *
- * Exits on NULL opt, both names NULL, invalid names, reserved name, or
- * OPT_ACT_COUNT paired with a type other than TYPE_USIZE.
+ * opt must not be NULL. At least one of long_name or short_name must not be NULL.
+ * Exits on invalid names, reserved name, or OPT_ACT_COUNT paired with a type other than TYPE_USIZE.
  */
 void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *description, bool has_default_value, OptAction action, Value value, Type type, bool required, bool global);
 
@@ -307,7 +309,7 @@ void clp_init_option_raw(Option *opt, char *long_name, char *short_name, char *d
  *   type              — value type.
  *   required          — if true, clp_parse_args exits when the operand is absent.
  *
- * Exits on NULL or empty op/name.
+ * op and name must not be NULL. Exits on an empty or invalid name.
  */
 void clp_init_opnd_raw(Operand *op, char *name, char *description, bool has_default_value, OpndAction action, Value value, Type type, bool required);
 
@@ -325,24 +327,24 @@ void clp_init_opnd_raw(Operand *op, char *name, char *description, bool has_defa
  * Global options marked on a parent are collected into the matched subcommand
  * after parsing and checked for required status.
  *
- * Exits on NULL/empty root or argv, unknown options, type conversion failures,
- * too many operands, or any missing required option/operand; prints usage and
- * a "--help" hint before exiting.
+ * root, argv, *argv, and command must not be NULL.
+ * Exits on unknown options, type conversion failures, too many operands, or any
+ * missing required option/operand; prints usage and a "--help" hint before exiting.
  */
 void clp_parse_args(Command *root, char **argv, Command **command);
 
 /* Return the option registered on command with the given short name, or NULL.
- * Returns NULL when command is NULL.
+ * command must not be NULL.
  */
 Option *clp_get_option_by_short(Command *command, char shrt);
 
 /* Return the option registered on command with the given long name, or NULL.
- * Returns NULL when command is NULL or lng is an empty view.
+ * command must not be NULL and lng must not be an empty view.
  */
 Option *clp_get_option_by_long(Command *command, DStringView lng);
 
 /* Return the operand registered on command with the given name, or NULL.
- * Returns NULL when command is NULL.
+ * command must not be NULL.
  */
 Operand *clp_get_operand(Command *command, DStringView opnd_name);
 
@@ -350,7 +352,7 @@ Operand *clp_get_operand(Command *command, DStringView opnd_name);
  *
  * Destroys the internal DDynArray and DUnorderedMap storage for every option
  * and operand at every level.  The Command, Option, and Operand structs are
- * caller-owned and are not freed.  Safe to call with NULL.
+ * caller-owned and are not freed.  root must not be NULL.
  */
 void clp_cleanup(Command *root);
 #endif

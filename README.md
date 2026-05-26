@@ -291,7 +291,6 @@ All error conditions print a message to **stderr** and call `exit(EXIT_FAILURE)`
 
 | Condition | Error |
 |-----------|-------|
-| Null pointer passed to any init/add function | exits |
 | Long option name starts with `-` or `_`, or contains invalid chars | exits |
 | Short option name is not alphanumeric | exits |
 | Long option name is `"help"` (reserved) | exits |
